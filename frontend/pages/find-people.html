@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Find People – SkillSync</title>
+  <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/profile.css">
+  <link rel="stylesheet" href="/css/matches.css">
+</head>
+<body>
+  <div class="app-layout" id="app"></div>
+  <script src="/js/api.js"></script>
+  <script src="/js/components.js"></script>
+  <script>
+    if (!initAuthPage()) throw new Error('Not authenticated');
+    let searchQuery = '';
+    let departmentFilter = '';
+    let yearFilter = '';
+
+    function renderFindPeoplePage() {
+      document.getElementById('app').innerHTML = renderAuthenticatedLayout('Find People', 'explore', `
+        <div class="page-header">
+          <h1>Find Students & Mentors</h1>
+          <p>Discover fellow students across departments to learn and exchange skills with.</p>
+        </div>
+
+        <!-- Search and Filters -->
+        <div class="skills-toolbar" style="margin-bottom:28px;">
+          <div class="search-box" style="flex:2; min-width:280px;">
+            <span class="search-icon">🔍</span>
+            <input type="text" placeholder="Search by student name, skill, college..." id="studentSearch" value="${searchQuery}" oninput="handleSearch(this.value)">
+          </div>
+          <select class="form-select" style="flex:1; min-width:180px;" id="deptFilter" onchange="filterDept(this.value)">
+            <option value="">All Departments</option>
+            <option value="Computer Science">Computer Science</option>
+            <option value="Information Technology">Information Technology</option>
+            <option value="Design">Design / UI / UX</option>
+            <option value="Business Administration">Business / Management</option>
+            <option value="Data Science">Data Science</option>
+            <option value="Electrical Engineering">Electrical Engineering</option>
+            <option value="Mechanical Engineering">Mechanical Engineering</option>
+          </select>
+          <select class="form-select" style="flex:1; min-width:140px;" id="yearFilter" onchange="filterYear(this.value)">
+            <option value="">All Years</option>
+            <option value="1st Year">1st Year</option>
+            <option value="2nd Year">2nd Year</option>
+            <option value="3rd Year">3rd Year</option>
+            <option value="4th Year">4th Year</option>
+            <option value="Graduate">Graduate</option>
+          </select>
+        </div>
+
+        <!-- Students Grid -->
+        <div class="people-grid" id="studentsGrid">${renderSkeletonCards(6)}</div>
+      `);
+
+      loadStudents();
+    }
+
+    const handleSearch = debounce((val) => {
+      searchQuery = val;
+      loadStudents();
+    }, 300);
+
+    function filterDept(dept) {
+      departmentFilter = dept;
+      loadStudents();
+    }
+
+    function filterYear(yr) {
+      yearFilter = yr;
+      loadStudents();
+    }
+
+    async function loadStudents() {
+      try {
+        const params = new URLSearchParams();
+        if (searchQuery) params.append('q', searchQuery);
+        if (departmentFilter) params.append('department', departmentFilter);
+        if (yearFilter) params.append('year', yearFilter);
+
+        const data = await api.get(`/users/search?${params}`);
+        const container = document.getElementById('studentsGrid');
+
+        if (!data.users || data.users.length === 0) {
+          container.innerHTML = renderEmptyState(
+            '👥',
+            'No Students Found',
+            'Try adjusting your search keywords or clearing filter criteria.',
+            '',
+            ''
+          );
+          return;
+        }
+
+        container.innerHTML = data.users.map(u => `
+          <div class="student-card animate-fade-in-up">
+            <div class="student-avatar">
+              ${u.profileImage ? `<img src="${u.profileImage}" alt="${u.fullName}">` : getInitials(u.fullName)}
+            </div>
+            <h4>${u.fullName} ${u.isVerified ? '<span style="color:var(--success); font-size:12px;" title="Verified">✓</span>' : ''}</h4>
+            <div class="student-dept">${u.department || 'Student'} ${u.year ? '• ' + u.year : ''}</div>
+            
+            <div style="display:flex; justify-content:center; align-items:center; gap:6px; margin-bottom:12px;">
+              ${renderStarRating(u.rating || 0)}
+              <span style="font-size:12px; color:var(--text-muted);">${u.rating > 0 ? u.rating.toFixed(1) : 'New'}</span>
+            </div>
+
+            ${u.bio ? `<p style="font-size:12px; color:var(--text-secondary); margin-bottom:14px; line-height:1.4; max-height:36px; overflow:hidden;">${u.bio}</p>` : ''}
+
+            <div class="student-skills">
+              ${(u.teachSkills || []).slice(0, 3).map(s => `
+                <span class="chip chip-success" style="font-size:10px;">${typeof s === 'object' ? s.skillName : s}</span>
+              `).join('')}
+              ${(u.learnSkills || []).slice(0, 2).map(s => `
+                <span class="chip chip-purple" style="font-size:10px;">${typeof s === 'object' ? s.skillName : s}</span>
+              `).join('')}
+            </div>
+
+            <div class="student-footer" style="margin-top:16px;">
+              <a href="/pages/public-profile.html?id=${u._id}" class="btn btn-sm btn-secondary" style="flex:1;">View Profile</a>
+              <a href="/pages/public-profile.html?id=${u._id}" class="btn btn-sm btn-primary" style="flex:1;">Exchange</a>
+            </div>
+          </div>
+        `).join('');
+      } catch (e) {
+        Toast.error('Failed to load students');
+      }
+    }
+
+    renderFindPeoplePage();
+  </script>
+</body>
+</html>

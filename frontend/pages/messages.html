@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Messages – SkillSync</title>
+  <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/messages.css">
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <div class="app-layout" id="app"></div>
+  <script src="/js/api.js"></script>
+  <script src="/js/components.js"></script>
+  <script>
+    if (!initAuthPage()) throw new Error('Not authenticated');
+
+    let activeConvId = null;
+    let activeOtherUser = null;
+    let pollInterval = null;
+    let allConversations = [];
+    let socket = null;
+
+    // Initialize Socket.IO connection
+    try {
+      if (typeof io !== 'undefined') {
+        socket = io();
+        const user = api.getUser();
+        if (user && user._id) {
+          socket.emit('joinUser', user._id);
+        }
+
+        socket.on('newMessage', (msg) => {
+          if (activeConvId && (msg.conversation === activeConvId || msg.conversation?._id === activeConvId)) {
+            loadMessages(activeConvId, true);
+          }
+          loadConversations(true);
+          checkUnreadMessagesCount();
+        });
+
+        socket.on('unreadCountUpdate', () => {
+          checkUnreadMessagesCount();
+          loadConversations(true);
+        });
+      }
+    } catch (e) {
+      console.warn('Socket.IO init warning:', e);
+    }
+
+    async function render() {
+      document.getElementById('app').innerHTML = renderAuthenticatedLayout('Messages', 'messages', `
+        <div class="messages-layout">
+          <div class="conversations-panel" id="convPanel">
+            <div class="conversations-header">
+              <h3>Messages</h3>
+              <div class="conversations-search">
+                <span class="search-icon">🔍</span>
+                <input type="text" placeholder="Search conversations..." id="convSearch" oninput="filterConversations(this.value)">
+              </div>
+            </div>
+            <div class="conversations-list" id="convList">
+              <div style="padding:20px;text-align:center;color:var(--text-muted);">Loading conversations...</div>
+            </div>
+          </div>
+          <div class="chat-panel" id="chatPanel">
+            <div class="chat-empty">
+              <div class="chat-empty-icon">💬</div>
+              <h3>Select a Conversation</h3>
+              <p>Choose a conversation from the left to start messaging.</p>
+            </div>
+          </div>
+        </div>
+      `);
+
+      await loadConversations();
+
+      // Check URL query param for conversation
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlConvId = urlParams.get('conversation');
+      if (urlConvId && allConversations.length > 0) {
+        const found = allConversations.find(c => c._id === urlConvId);
+        if (found) {
+          openConversation(found._id);
+        }
+      }
+    }
+
+    async function loadConversations(silent = false) {
+      try {
+        const data = await api.get('/messages/conversations');
+        const el = document.getElementById('convList');
+        const userId = api.getUser()._id;
+
+        allConversations = data.conversations || [];
+
+        if (!allConversations || allConversations.length === 0) {
+          if (el) {
+            el.innerHTML = `
+              <div style="padding:40px 20px;text-align:center;">
+                <div style="font-size:36px;margin-bottom:12px;">💬</div>
+                <h4 style="font-size:15px;margin-bottom:6px;color:var(--text-primary);">No conversations yet</h4>
+                <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Connect with skill matches to start chatting.</p>
+                <a href="/pages/matches.html" class="btn btn-sm btn-primary">Explore Matches</a>
+              </div>
+            `;
+          }
+          return;
+        }
+
+        const searchQuery = document.getElementById('convSearch')?.value || '';
+        renderConversationList(allConversations, searchQuery);
+      } catch (e) {
+        if (!silent) Toast.error('Unable to load conversations.');
+      }
+    }
+
+    function filterConversations(query) {
+      renderConversationList(allConversations, query);
+    }
+
+    function renderConversationList(convs, query = '') {
+      const el = document.getElementById('convList');
+      if (!el) return;
+      const userId = api.getUser()._id;
+
+      const q = query.trim().toLowerCase();
+      const filtered = convs.filter(c => {
+        const other = c.participants.find(p => p._id !== userId) || c.participants[0] || {};
+        const nameMatch = (other.fullName || '').toLowerCase().includes(q);
+        const skillMatch = (c.skillInfo || '').toLowerCase().includes(q);
+        const msgMatch = (c.lastMessage || '').toLowerCase().includes(q);
+        return nameMatch || skillMatch || msgMatch;
+      });
+
+      if (filtered.length === 0) {
+        el.innerHTML = `
+          <div style="padding:30px 20px;text-align:center;color:var(--text-muted);font-size:13px;">
+            No conversations match "${query}"
+          </div>
+        `;
+        return;
+      }
+
+      el.innerHTML = filtered.map(c => {
+        const other = c.participants.find(p => p._id !== userId) || c.participants[0] || {};
+        const isOnline = other.isOnline || false;
+        const avatar = other.profileImage
+          ? `<img src="${other.profileImage}" alt="${other.fullName}">`
+          : getInitials(other.fullName);
+
+        return `
+          <div class="conversation-item ${activeConvId === c._id ? 'active' : ''}" onclick="openConversation('${c._id}')">
+            <div class="conv-avatar">
+              ${avatar}
+              ${isOnline ? '<div class="online-dot"></div>' : ''}
+            </div>
+            <div class="conv-info">
+              <div class="conv-name">
+                <span>${other.fullName || 'Student'}</span>
+                <span class="conv-time">${c.lastMessageAt ? timeAgo(c.lastMessageAt) : ''}</span>
+              </div>
+              ${c.skillInfo ? `<div style="font-size:11px;color:var(--primary-light);font-weight:500;margin-bottom:2px;">${c.skillInfo}</div>` : ''}
+              <div class="conv-last-msg">${c.lastMessage || 'Start a conversation'}</div>
+            </div>
+            ${c.unreadCount > 0 ? `<div class="unread-badge">${c.unreadCount}</div>` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function openConversation(convId) {
+      activeConvId = convId;
+
+      const conv = allConversations.find(c => c._id === convId);
+      const userId = api.getUser()._id;
+      const other = conv ? (conv.participants.find(p => p._id !== userId) || conv.participants[0]) : null;
+      activeOtherUser = other;
+
+      // Join socket room if available
+      if (socket) {
+        socket.emit('joinConversation', convId);
+      }
+
+      // Handle mobile responsive panel switching
+      const convPanel = document.getElementById('convPanel');
+      const chatPanel = document.getElementById('chatPanel');
+      if (window.innerWidth <= 768) {
+        convPanel?.classList.add('hidden');
+        chatPanel?.classList.remove('hidden');
+      }
+
+      // Update active list selection UI
+      document.querySelectorAll('.conversation-item').forEach(el => el.classList.remove('active'));
+      const activeEl = document.querySelector(`.conversation-item[onclick*="${convId}"]`);
+      if (activeEl) activeEl.classList.add('active');
+
+      const otherName = other ? other.fullName : 'Student';
+      const otherImage = other ? other.profileImage : '';
+      const otherId = other ? other._id : '';
+      const isOnline = other ? other.isOnline : false;
+      const avatarHtml = otherImage
+        ? `<img src="${otherImage}" alt="${otherName}">`
+        : getInitials(otherName);
+
+      chatPanel.innerHTML = `
+        <div class="chat-header">
+          <button class="chat-back-btn" onclick="closeChatMobile()" title="Back to conversations">←</button>
+          <a href="/pages/public-profile.html?id=${otherId}" class="avatar avatar-md" style="cursor:pointer;text-decoration:none;">
+            ${avatarHtml}
+          </a>
+          <div class="chat-user-info">
+            <a href="/pages/public-profile.html?id=${otherId}" style="text-decoration:none;color:inherit;">
+              <h4>${otherName}</h4>
+            </a>
+            <p style="font-size:12px;color:${isOnline ? '#22C55E' : 'var(--text-muted)'}; margin-top:1px;">
+              ${conv?.skillInfo ? `${conv.skillInfo} • ` : ''}${isOnline ? 'Online' : 'Offline'}
+            </p>
+          </div>
+          <a href="/pages/public-profile.html?id=${otherId}" class="btn btn-sm btn-ghost">View Profile</a>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+          <div style="text-align:center;padding:20px;color:var(--text-muted);">Loading messages...</div>
+        </div>
+        <div class="chat-input">
+          <input type="text" placeholder="Type a message..." id="msgInput" onkeypress="handleKeyPress(event)" oninput="validateInput()">
+          <button class="send-btn" id="sendBtn" onclick="sendMsg()" disabled style="opacity:0.5;cursor:not-allowed;">➤</button>
+        </div>
+      `;
+
+      await loadMessages(convId);
+      checkUnreadMessagesCount();
+
+      if (pollInterval) clearInterval(pollInterval);
+      pollInterval = setInterval(() => loadMessages(convId, true), 5000);
+    }
+
+    function closeChatMobile() {
+      const convPanel = document.getElementById('convPanel');
+      const chatPanel = document.getElementById('chatPanel');
+      convPanel?.classList.remove('hidden');
+      chatPanel?.classList.add('hidden');
+    }
+
+    function validateInput() {
+      const input = document.getElementById('msgInput');
+      const sendBtn = document.getElementById('sendBtn');
+      if (!input || !sendBtn) return;
+      const valid = input.value.trim().length > 0;
+      sendBtn.disabled = !valid;
+      sendBtn.style.opacity = valid ? '1' : '0.5';
+      sendBtn.style.cursor = valid ? 'pointer' : 'not-allowed';
+    }
+
+    function handleKeyPress(event) {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        sendMsg();
+      }
+    }
+
+    async function loadMessages(convId, silent = false) {
+      try {
+        const data = await api.get(`/messages/conversations/${convId}/messages`);
+        const el = document.getElementById('chatMessages');
+        if (!el) return;
+
+        const userId = api.getUser()._id;
+        if (!data.messages || data.messages.length === 0) {
+          if (!silent) {
+            el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);">No messages yet. Send the first message!</div>';
+          }
+          return;
+        }
+
+        const messagesHtml = data.messages.map(m => {
+          const isSent = (m.sender._id || m.sender) === userId;
+          return `
+            <div class="message-bubble ${isSent ? 'sent' : 'received'}">
+              ${escapeHtml(m.content)}
+              <div class="message-time">${formatTime(m.createdAt)}</div>
+            </div>
+          `;
+        }).join('');
+
+        const shouldScroll = !silent || (el.scrollHeight - el.scrollTop - el.clientHeight < 120);
+        el.innerHTML = messagesHtml;
+        if (shouldScroll) {
+          el.scrollTop = el.scrollHeight;
+        }
+      } catch (e) {
+        if (!silent) Toast.error('Unable to load messages.');
+      }
+    }
+
+    async function sendMsg() {
+      const input = document.getElementById('msgInput');
+      if (!input) return;
+
+      const content = input.value.trim();
+      if (!content || !activeConvId) return;
+
+      input.value = '';
+      validateInput();
+
+      try {
+        await api.post('/messages', { conversationId: activeConvId, content });
+        await loadMessages(activeConvId, true);
+        await loadConversations(true);
+        checkUnreadMessagesCount();
+      } catch (e) {
+        Toast.error(e.message || 'Unable to send message. Try again.');
+      }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    render();
+  </script>
+</body>
+</html>

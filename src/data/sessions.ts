@@ -1,0 +1,72 @@
+import { Session } from '../types';
+
+export const MOCK_SESSIONS: Session[] = [
+  {
+    id: 'session_demo_1',
+    partnerId: 'student_elena',
+    partnerName: 'Elena Rostova',
+    partnerAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&auto=format&fit=crop&q=80',
+    partnerMajor: 'Design & Human Factors',
+    partnerUniversity: 'Harvard University',
+    role: 'exchange',
+    topic: 'Figma Component Tokens & React Prop Mapping',
+    date: '2026-11-14',
+    time: '02:00 PM',
+    duration: 60,
+    format: 'virtual',
+    locationDetails: 'Google Meet / Screen Share',
+    status: 'upcoming',
+    notes: 'Reviewing design system tokens for web button and input variants. Mapping Figma JSON exports to Tailwind config.',
+    meetingLink: 'https://meet.google.com/ssy-demo-alex'
+  },
+  {
+    id: 'session_demo_2',
+    partnerId: 'student_jordan',
+    partnerName: 'Jordan Taylor',
+    partnerAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&auto=format&fit=crop&q=80',
+    partnerMajor: 'Software Engineering & Cloud Systems',
+    partnerUniversity: 'Carnegie Mellon',
+    role: 'mentor',
+    topic: 'Docker Containerization & CI/CD Pipeline Setup',
+    date: '2026-11-17',
+    time: '10:30 AM',
+    duration: 45,
+    format: 'virtual',
+    locationDetails: 'Discord / Screen Share',
+    status: 'upcoming',
+    notes: 'Writing multi-stage Dockerfiles and configuring GitHub Actions for automated unit testing.',
+    meetingLink: 'https://meet.google.com/ssy-demo-cmu'
+  },
+  {
+    id: 'session_demo_3',
+    partnerId: 'student_sophia',
+    partnerName: 'Sophia Chen',
+    partnerAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&auto=format&fit=crop&q=80',
+    partnerMajor: 'EECS & Artificial Intelligence',
+    partnerUniversity: 'UC Berkeley',
+    role: 'learner',
+    topic: 'Intro to PyTorch Tensors & GPU Acceleration',
+    date: '2026-11-20',
+    time: '04:00 PM',
+    duration: 60,
+    format: 'virtual',
+    status: 'pending',
+    notes: 'Deep dive into PyTorch autograd engine, tensor shapes, and loss backpropagation.'
+  },
+  {
+    id: 'session_demo_4',
+    partnerId: 'student_elena',
+    partnerName: 'Elena Rostova',
+    partnerAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&auto=format&fit=crop&q=80',
+    partnerMajor: 'Design & Human Factors',
+    partnerUniversity: 'Harvard University',
+    role: 'exchange',
+    topic: 'User Journey Mapping & Wireframe Critique',
+    date: '2026-11-08',
+    time: '03:00 PM',
+    duration: 60,
+    format: 'virtual',
+    status: 'completed',
+    notes: 'Constructive critique on dashboard cards and topbar navigation accessibility.'
+  }
+];

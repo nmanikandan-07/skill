@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sessions – SkillSync</title>
+  <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/sessions.css">
+</head>
+<body>
+  <div class="app-layout" id="app"></div>
+  <script src="/js/api.js"></script>
+  <script src="/js/components.js"></script>
+  <script>
+    if (!initAuthPage()) throw new Error('Not authenticated');
+
+    const urlParams = new URLSearchParams(window.location.search);
+    let activeTab = urlParams.get('tab') || 'upcoming';
+
+    function render() {
+      document.getElementById('app').innerHTML = renderAuthenticatedLayout('Sessions', 'sessions', `
+        <div class="page-header flex-between">
+          <div>
+            <h1>Sessions</h1>
+            <p>Manage your learning sessions with skill partners.</p>
+          </div>
+          <a href="/pages/book-session.html" class="btn btn-primary" style="display:inline-flex; align-items:center; gap:8px;">
+            📅 Book Session
+          </a>
+        </div>
+
+        <div class="tabs">
+          <button class="tab ${activeTab==='upcoming'?'active':''}" onclick="switchTab('upcoming')">Upcoming</button>
+          <button class="tab ${activeTab==='pending'?'active':''}" onclick="switchTab('pending')">Pending Requests</button>
+          <button class="tab ${activeTab==='confirmed'?'active':''}" onclick="switchTab('confirmed')">Confirmed</button>
+          <button class="tab ${activeTab==='completed'?'active':''}" onclick="switchTab('completed')">Completed</button>
+          <button class="tab ${activeTab==='cancelled'?'active':''}" onclick="switchTab('cancelled')">Cancelled</button>
+        </div>
+
+        <div class="sessions-grid" id="sessionsGrid">${renderSkeletonCards(4)}</div>
+      `);
+      loadSessions();
+    }
+
+    function switchTab(tab) {
+      activeTab = tab;
+      window.history.replaceState({}, '', `/pages/sessions.html?tab=${tab}`);
+      render();
+    }
+
+    async function loadSessions() {
+      try {
+        const data = await api.get(`/sessions?type=${activeTab}`);
+        const grid = document.getElementById('sessionsGrid');
+        
+        if (!data.sessions || data.sessions.length === 0) {
+          const tabLabel = activeTab.charAt(0).toUpperCase() + activeTab.slice(1);
+          grid.innerHTML = renderEmptyState(
+            '📅',
+            `No ${tabLabel} Sessions`,
+            'Book a learning session with one of your connected skill partners.',
+            'Book Session',
+            '/pages/book-session.html'
+          );
+          return;
+        }
+
+        const currentUser = api.getUser();
+        const userId = currentUser._id;
+
+        grid.innerHTML = data.sessions.map(s => {
+          const isOrganizer = s.organizer._id === userId;
+          const partner = isOrganizer ? s.partner : s.organizer;
+          const roleLabel = isOrganizer ? 'Recipient' : 'Requester';
+          const d = new Date(s.date);
+          const formattedDate = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+          
+          let statusBadgeClass = 'badge-pending';
+          let statusLabel = s.status ? s.status.toUpperCase() : 'PENDING';
+
+          if (s.status === 'accepted' || s.status === 'scheduled') {
+            statusBadgeClass = 'badge-accepted';
+            statusLabel = 'CONFIRMED';
+          } else if (s.status === 'completed') {
+            statusBadgeClass = 'badge-completed';
+            statusLabel = 'COMPLETED';
+          } else if (s.status === 'cancelled' || s.status === 'declined') {
+            statusBadgeClass = 'badge-cancelled';
+            statusLabel = s.status.toUpperCase();
+          }
+
+          const modeText = s.mode === 'online' ? 'Online' : (s.mode === 'offline' || s.mode === 'in-person' ? 'Offline / In Person' : s.mode);
+
+          return `
+            <div class="session-card animate-fade-in">
+              <div class="session-card-header">
+                <span class="session-skill">
+                  💡 ${s.skillName || 'Learning Session'}
+                </span>
+                <span class="badge ${statusBadgeClass}">${statusLabel}</span>
+              </div>
+              
+              <div class="session-card-body">
+                <div class="session-detail-row"><span class="detail-icon">📅</span> <strong>Date:</strong> ${formattedDate}</div>
+                <div class="session-detail-row"><span class="detail-icon">⏰</span> <strong>Time:</strong> ${s.startTime}${s.endTime ? ` – ${s.endTime}` : ''}</div>
+                <div class="session-detail-row"><span class="detail-icon">⏱</span> <strong>Duration:</strong> ${s.duration || 60} mins</div>
+                <div class="session-detail-row"><span class="detail-icon">📍</span> <strong>Mode:</strong> ${modeText}</div>
+                ${s.learningObjective ? `<div class="session-detail-row" style="align-items:flex-start;"><span class="detail-icon">🎯</span> <div><strong>Objective:</strong> ${s.learningObjective}</div></div>` : ''}
+                ${s.notes ? `<div class="session-detail-row" style="align-items:flex-start;"><span class="detail-icon">📝</span> <div><strong>Notes:</strong> ${s.notes}</div></div>` : ''}
+              </div>
+
+              <div class="session-partner">
+                ${renderAvatar(partner, 'sm')}
+                <div style="flex:1;">
+                  <span style="font-size: 13px; color: var(--text-secondary);">Partner (${roleLabel}):</span><br>
+                  <strong style="color: var(--text-primary); font-size: 14px;">${partner.fullName}</strong>
+                  ${partner.department ? `<span style="font-size: 12px; color: var(--text-muted);"> • ${partner.department}</span>` : ''}
+                </div>
+              </div>
+
+              <div class="session-card-footer">
+                ${s.status === 'pending' ? (
+                  !isOrganizer ? `
+                    <button class="btn btn-sm btn-success" style="flex:1; justify-content:center;" onclick="acceptSession('${s._id}')">✓ Accept Request</button>
+                    <button class="btn btn-sm btn-danger" onclick="declineSession('${s._id}')">Decline</button>
+                  ` : `
+                    <span style="font-size: 12px; color: var(--text-muted); display:flex; align-items:center; gap:4px; flex:1;">⏳ Pending Partner Approval</span>
+                    <button class="btn btn-sm btn-outline" onclick="cancelSession('${s._id}')">Cancel</button>
+                  `
+                ) : ''}
+
+                ${(s.status === 'accepted' || s.status === 'scheduled') ? `
+                  <button class="btn btn-sm btn-success" onclick="completeSession('${s._id}')">✓ Mark Completed</button>
+                  <button class="btn btn-sm btn-danger" onclick="cancelSession('${s._id}')">Cancel</button>
+                ` : ''}
+
+                ${s.status === 'completed' ? `
+                  <a href="/pages/progress.html" class="btn btn-sm btn-secondary" style="width:100%; justify-content:center;">View Progress</a>
+                ` : ''}
+              </div>
+            </div>`;
+        }).join('');
+      } catch(e) {
+        console.error('Failed to load sessions:', e);
+        Toast.error('Failed to load sessions');
+      }
+    }
+
+    async function acceptSession(id) {
+      try {
+        const res = await api.put(`/sessions/${id}/accept`);
+        Toast.success(res.message || 'Session accepted!');
+        loadSessions();
+      } catch(e) {
+        Toast.error(e.message || 'Failed to accept session');
+      }
+    }
+
+    async function declineSession(id) {
+      if (!confirm('Decline this session request?')) return;
+      try {
+        const res = await api.put(`/sessions/${id}/decline`);
+        Toast.success(res.message || 'Session declined');
+        loadSessions();
+      } catch(e) {
+        Toast.error(e.message || 'Failed to decline session');
+      }
+    }
+
+    async function completeSession(id) {
+      try {
+        await api.put(`/sessions/${id}`, { status: 'completed' });
+        Toast.success('Session marked complete!');
+        loadSessions();
+      } catch(e) {
+        Toast.error(e.message || 'Failed to complete session');
+      }
+    }
+
+    async function cancelSession(id) {
+      if (!confirm('Cancel this session?')) return;
+      try {
+        await api.delete(`/sessions/${id}`);
+        Toast.success('Session cancelled');
+        loadSessions();
+      } catch(e) {
+        Toast.error(e.message || 'Failed to cancel session');
+      }
+    }
+
+    render();
+  </script>
+</body>
+</html>

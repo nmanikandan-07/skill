@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Progress & Achievements – SkillSync</title>
+  <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/progress.css">
+  <link rel="stylesheet" href="/css/profile.css">
+</head>
+<body>
+  <div class="app-layout" id="app"></div>
+
+  <!-- Update Progress Modal -->
+  <div class="modal-overlay" id="updateProgressModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Update Skill Progress</h3>
+        <button class="modal-close" onclick="closeProgressModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="progressRecordId">
+        <div class="form-group">
+          <label class="form-label">Completion Percentage (<span id="percentageVal">50</span>%)</label>
+          <input type="range" min="0" max="100" value="50" class="form-input" id="progressSlider" oninput="document.getElementById('percentageVal').textContent=this.value" style="padding:0; accent-color:var(--primary); cursor:pointer;">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Add Study / Practice Hours</label>
+          <input type="number" min="0" step="0.5" class="form-input" id="addHours" placeholder="e.g., 2.5">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Next Milestone / Objective</label>
+          <input type="text" class="form-input" id="nextMilestone" placeholder="e.g., Complete API integration unit">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Progress Notes</label>
+          <textarea class="form-textarea" id="progressNotes" placeholder="What did you learn or practice recently?" rows="3"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeProgressModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveProgressUpdate()">Save Progress</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/components.js"></script>
+  <script>
+    if (!initAuthPage()) throw new Error('Not authenticated');
+    let activeTab = 'overview';
+    let progressData = null;
+
+    async function loadProgressPage() {
+      try {
+        const [progressRes, userRes] = await Promise.all([
+          api.get('/progress'),
+          api.get('/users/me')
+        ]);
+        progressData = progressRes;
+        const u = userRes.user;
+
+        document.getElementById('app').innerHTML = renderAuthenticatedLayout('Progress & Achievements', 'progress', `
+          <div class="page-header flex-between">
+            <div>
+              <h1>Learning Progress & Milestones</h1>
+              <p>Track your skill mastery, session milestones, and platform achievements.</p>
+            </div>
+            <a href="/pages/portfolio.html" class="btn btn-primary">💼 View Portfolio</a>
+          </div>
+
+          <!-- Overall Summary Cards -->
+          <div class="progress-overview">
+            <div class="stat-card">
+              <div class="stat-icon primary">⏱</div>
+              <div class="stat-content">
+                <h3>${u.totalHoursExchanged || 0} hrs</h3>
+                <p>Total Exchange Hours</p>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon purple">🎯</div>
+              <div class="stat-content">
+                <h3>${progressRes.progressList?.length || 0}</h3>
+                <p>Skills in Progress</p>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon success">🏆</div>
+              <div class="stat-content">
+                <h3>${progressRes.userAchievements?.length || 0}</h3>
+                <p>Achievements Unlocked</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="tabs">
+            <button class="tab ${activeTab==='overview'?'active':''}" onclick="switchTab('overview')">Active Skills</button>
+            <button class="tab ${activeTab==='achievements'?'active':''}" onclick="switchTab('achievements')">Badges & Achievements</button>
+          </div>
+
+          <div id="tabContent"></div>
+        `);
+
+        renderCurrentTab();
+      } catch (e) {
+        Toast.error('Failed to load progress data');
+      }
+    }
+
+    function switchTab(tab) {
+      activeTab = tab;
+      document.querySelectorAll('.tab').forEach((t, i) => {
+        t.classList.toggle('active', (tab === 'overview' && i === 0) || (tab === 'achievements' && i === 1));
+      });
+      renderCurrentTab();
+    }
+
+    function renderCurrentTab() {
+      const container = document.getElementById('tabContent');
+      if (!container || !progressData) return;
+
+      if (activeTab === 'overview') {
+        const list = progressData.progressList || [];
+        if (list.length === 0) {
+          container.innerHTML = renderEmptyState(
+            '📈',
+            'No Active Skill Progress Yet',
+            'Start an exchange or add learning goals to track your milestones.',
+            'Explore Skills',
+            '/pages/explore-skills.html'
+          );
+          return;
+        }
+
+        container.innerHTML = `
+          <div class="grid-2">
+            ${list.map(p => `
+              <div class="card animate-fade-in-up" style="display:flex; flex-direction:column; justify-content:space-between;">
+                <div>
+                  <div class="flex-between" style="margin-bottom:16px;">
+                    <div>
+                      <h3 style="font-size:18px; margin-bottom:2px;">${p.skillName || p.skill?.name || 'Skill'}</h3>
+                      <span class="chip chip-primary" style="font-size:11px;">${p.skill?.category || 'Learning Track'}</span>
+                    </div>
+                    <div style="font-size:24px; font-weight:700; color:var(--primary);">${p.completionPercentage || 0}%</div>
+                  </div>
+
+                  <div class="progress-bar mb-xl" style="height:10px;">
+                    <div class="progress-fill ${p.completionPercentage >= 100 ? 'success' : ''}" style="width:${p.completionPercentage || 0}%"></div>
+                  </div>
+
+                  <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px; font-size:13px;">
+                    <div class="flex-between">
+                      <span class="text-muted">Hours Invested</span>
+                      <strong>${p.hoursSpent || 0} hours</strong>
+                    </div>
+                    <div class="flex-between">
+                      <span class="text-muted">Sessions Completed</span>
+                      <strong>${p.sessionsCompleted || 0} sessions</strong>
+                    </div>
+                    <div class="flex-between">
+                      <span class="text-muted">Last Activity</span>
+                      <span>${timeAgo(p.lastActivity || p.updatedAt)}</span>
+                    </div>
+                  </div>
+
+                  ${p.milestones && p.milestones.length > 0 ? `
+                    <div style="border-top:1px solid var(--border-light); padding-top:16px; margin-top:12px;">
+                      <h4 style="font-size:13px; font-weight:600; margin-bottom:10px;">Milestones</h4>
+                      <div class="milestone-timeline" style="margin-top:8px;">
+                        ${p.milestones.map(m => `
+                          <div class="milestone-item ${m.completed ? 'completed' : 'current'}">
+                            <h5>${m.title}</h5>
+                            <p>${m.description || ''}</p>
+                            ${m.completed ? `<span class="milestone-date">✓ Completed</span>` : '<span style="font-size:11px; color:var(--primary);">In Progress</span>'}
+                          </div>
+                        `).join('')}
+                      </div>
+                    </div>
+                  ` : ''}
+                </div>
+
+                <div style="margin-top:20px; border-top:1px solid var(--border-light); padding-top:16px;" class="flex-between">
+                  <span style="font-size:12px; color:var(--text-muted);">${p.notes ? '📝 Notes saved' : ''}</span>
+                  <button class="btn btn-sm btn-outline" onclick="openProgressModal('${p._id}', ${p.completionPercentage || 0})">✏️ Update Progress</button>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      } else if (activeTab === 'achievements') {
+        const allAchievements = progressData.allAchievements || [];
+        const unlockedIds = new Set((progressData.userAchievements || []).map(ua => ua.achievement?._id || ua.achievement));
+
+        container.innerHTML = `
+          <div class="achievements-grid animate-fade-in">
+            ${allAchievements.map(ach => {
+              const isUnlocked = unlockedIds.has(ach._id);
+              return `
+                <div class="achievement-card ${isUnlocked ? '' : 'locked'}">
+                  <div class="achievement-icon" style="${isUnlocked ? 'filter: drop-shadow(0 2px 8px rgba(91,92,246,0.3));' : ''}">
+                    ${ach.icon || '🏅'}
+                  </div>
+                  <h4>${ach.name}</h4>
+                  <p>${ach.description}</p>
+                  <div style="margin-top:12px;">
+                    <span class="chip ${isUnlocked ? 'chip-success' : 'chip-warning'}" style="font-size:10px; text-transform:capitalize;">
+                      ${isUnlocked ? '✓ Unlocked' : ach.rarity || 'Locked'}
+                    </span>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `;
+      }
+    }
+
+    function openProgressModal(id, currentPercent) {
+      document.getElementById('progressRecordId').value = id;
+      document.getElementById('progressSlider').value = currentPercent;
+      document.getElementById('percentageVal').textContent = currentPercent;
+      document.getElementById('addHours').value = '';
+      document.getElementById('nextMilestone').value = '';
+      document.getElementById('progressNotes').value = '';
+      document.getElementById('updateProgressModal').classList.add('active');
+    }
+
+    function closeProgressModal() {
+      document.getElementById('updateProgressModal').classList.remove('active');
+    }
+
+    async function saveProgressUpdate() {
+      const id = document.getElementById('progressRecordId').value;
+      const percentage = parseInt(document.getElementById('progressSlider').value);
+      const hours = parseFloat(document.getElementById('addHours').value) || 0;
+      const milestone = document.getElementById('nextMilestone').value.trim();
+      const notes = document.getElementById('progressNotes').value.trim();
+
+      try {
+        await api.put(`/progress/${id}`, {
+          completionPercentage: percentage,
+          hoursSpent: hours,
+          milestoneTitle: milestone,
+          notes
+        });
+        Toast.success('Progress updated successfully!');
+        closeProgressModal();
+        loadProgressPage();
+      } catch (e) {
+        Toast.error(e.message || 'Failed to update progress');
+      }
+    }
+
+    loadProgressPage();
+  </script>
+</body>
+</html>

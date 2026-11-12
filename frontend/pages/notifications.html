@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Notifications – SkillSync</title>
+  <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/requests.css">
+</head>
+<body>
+  <div class="app-layout" id="app"></div>
+  <script src="/js/api.js"></script>
+  <script src="/js/components.js"></script>
+  <script>
+    if (!initAuthPage()) throw new Error('Not authenticated');
+    let filter = 'all';
+
+    async function renderNotificationsPage() {
+      document.getElementById('app').innerHTML = renderAuthenticatedLayout('Notifications', 'notifications', `
+        <div class="page-header flex-between">
+          <div>
+            <h1>Notifications</h1>
+            <p>Stay updated with your exchange requests, session reminders, and achievements.</p>
+          </div>
+          <button class="btn btn-secondary" onclick="markAllRead()">✓ Mark All as Read</button>
+        </div>
+
+        <div class="tabs">
+          <button class="tab ${filter==='all'?'active':''}" onclick="setFilter('all')">All</button>
+          <button class="tab ${filter==='unread'?'active':''}" onclick="setFilter('unread')">Unread</button>
+        </div>
+
+        <div id="notificationsContainer">${renderSkeletonCards(4)}</div>
+      `);
+
+      loadNotifications();
+    }
+
+    function setFilter(f) {
+      filter = f;
+      document.querySelectorAll('.tab').forEach((t, i) => {
+        t.classList.toggle('active', (f === 'all' && i === 0) || (f === 'unread' && i === 1));
+      });
+      loadNotifications();
+    }
+
+    async function loadNotifications() {
+      try {
+        const endpoint = filter === 'unread' ? '/notifications?unreadOnly=true' : '/notifications';
+        const data = await api.get(endpoint);
+        const container = document.getElementById('notificationsContainer');
+
+        if (!data.notifications || data.notifications.length === 0) {
+          container.innerHTML = renderEmptyState(
+            '🔔',
+            'No Notifications',
+            filter === 'unread' ? 'You have caught up with all notifications!' : 'No activity notifications yet.',
+            '',
+            ''
+          );
+          return;
+        }
+
+        const iconMap = {
+          request_received: '📨',
+          request_accepted: '🎉',
+          request_rejected: '❌',
+          session_booked: '📅',
+          session_reminder: '⏰',
+          new_message: '💬',
+          new_review: '⭐',
+          achievement_unlocked: '🏆',
+          general: '📢'
+        };
+
+        container.innerHTML = `
+          <div class="requests-list">
+            ${data.notifications.map(n => `
+              <div class="card animate-fade-in" style="display:flex; align-items:flex-start; gap:16px; padding:18px; ${!n.isRead ? 'background:rgba(91,92,246,0.03); border-left:4px solid var(--primary);' : ''}">
+                <div style="font-size:24px; width:44px; height:44px; border-radius:var(--radius-md); background:var(--bg-page); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                  ${iconMap[n.type] || '🔔'}
+                </div>
+                <div style="flex:1;">
+                  <div class="flex-between" style="margin-bottom:4px;">
+                    <h4 style="font-size:15px; font-weight:${n.isRead ? '500' : '700'}; color:var(--text-primary);">${n.title}</h4>
+                    <span style="font-size:12px; color:var(--text-muted);">${timeAgo(n.createdAt)}</span>
+                  </div>
+                  <p style="font-size:13px; color:var(--text-secondary); line-height:1.5;">${n.message}</p>
+                  ${n.link ? `
+                    <div style="margin-top:10px;">
+                      <a href="${n.link}" class="btn btn-sm btn-outline" onclick="markOneRead('${n._id}')">View Details →</a>
+                    </div>
+                  ` : ''}
+                </div>
+                ${!n.isRead ? `
+                  <button class="btn btn-sm btn-ghost" onclick="markOneRead('${n._id}')" title="Mark as read">✓</button>
+                ` : ''}
+              </div>
+            `).join('')}
+          </div>
+        `;
+      } catch (e) {
+        Toast.error('Failed to load notifications');
+      }
+    }
+
+    async function markAllRead() {
+      try {
+        await api.put('/notifications/read-all');
+        Toast.success('All notifications marked as read');
+        const notifDot = document.getElementById('notifDot');
+        if (notifDot) notifDot.style.display = 'none';
+        loadNotifications();
+      } catch (e) {
+        Toast.error(e.message || 'Failed to update notifications');
+      }
+    }
+
+    async function markOneRead(id) {
+      try {
+        await api.put(`/notifications/${id}/read`);
+        loadNotifications();
+      } catch (e) {}
+    }
+
+    renderNotificationsPage();
+  </script>
+</body>
+</html>

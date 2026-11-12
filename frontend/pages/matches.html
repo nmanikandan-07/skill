@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Matches – SkillSync</title>
+  <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/matches.css">
+</head>
+<body>
+  <div class="app-layout" id="app"></div>
+  <script src="/js/api.js"></script>
+  <script src="/js/components.js"></script>
+  <script>
+    if (!initAuthPage()) throw new Error('Not authenticated');
+    let activeTab = 'recommended';
+
+    function render() {
+      document.getElementById('app').innerHTML = renderAuthenticatedLayout('Matches', 'matches', `
+        <div class="page-header"><h1>Skill Matches</h1><p>Discover students whose skills complement yours perfectly.</p></div>
+        <div class="tabs">
+          <button class="tab ${activeTab==='recommended'?'active':''}" onclick="switchTab('recommended')">Recommended</button>
+          <button class="tab ${activeTab==='saved'?'active':''}" onclick="switchTab('saved')">Saved</button>
+        </div>
+        <div class="matches-grid" id="matchesGrid">${renderSkeletonCards(6)}</div>
+      `);
+      loadMatches();
+    }
+
+    function switchTab(tab) { activeTab = tab; render(); }
+
+    async function loadMatches() {
+      try {
+        const endpoint = activeTab === 'saved' ? '/matches/saved' : '/matches';
+        const data = await api.get(endpoint);
+        const grid = document.getElementById('matchesGrid');
+        if (!data.matches || data.matches.length === 0) {
+          grid.innerHTML = renderEmptyState('🤝', activeTab==='saved'?'No Saved Matches':'No Matches Yet', activeTab==='saved'?'Save matches from the recommended tab.':'Add your teaching and learning skills to get matched.', 'Add Skills', '/pages/my-skills.html');
+          return;
+        }
+        grid.innerHTML = data.matches.map(m => {
+          const u = m.user;
+          const teachSkills = u.teachSkills || m.matchedSkills?.canTeach || [];
+          const learnSkills = u.learnSkills || m.matchedSkills?.canLearn || [];
+          return `
+            <div class="match-card animate-fade-in-up">
+              <button class="save-btn ${m.isSaved?'saved':''}" onclick="toggleSave('${u._id}',this)" title="${m.isSaved?'Unsave':'Save'}">♥</button>
+              <div class="match-card-header">
+                <div class="match-avatar">${u.profileImage?`<img src="${u.profileImage}" alt="${u.fullName}">`:(getInitials(u.fullName))}</div>
+                <div class="match-user">
+                  <h4>${u.fullName}</h4>
+                  <p>${u.department||'Student'}${u.year?' • '+u.year:''}</p>
+                  <div style="margin-top:4px;">${renderStarRating(u.rating||0)} <span style="font-size:12px;color:var(--text-muted);margin-left:4px;">${u.rating||'New'}</span></div>
+                </div>
+                ${renderMatchRing(m.matchPercentage||0)}
+              </div>
+              <div class="match-skills-section">
+                <div class="section-label">Can Teach You</div>
+                <div class="skill-chips">${(Array.isArray(teachSkills)?teachSkills:[]).map(s => `<span class="chip chip-success">${typeof s==='object'?s.skillName:s}</span>`).join('') || '<span class="text-muted" style="font-size:12px;">—</span>'}</div>
+              </div>
+              <div class="match-skills-section">
+                <div class="section-label">Wants to Learn</div>
+                <div class="skill-chips">${(Array.isArray(learnSkills)?learnSkills:[]).map(s => `<span class="chip chip-purple">${typeof s==='object'?s.skillName:s}</span>`).join('') || '<span class="text-muted" style="font-size:12px;">—</span>'}</div>
+              </div>
+              <div class="match-card-footer">
+                <span class="chip">${u.availability||'Flexible'}</span>
+                <div class="match-actions">
+                  <button class="btn btn-sm btn-ghost" onclick="startChat('${u._id}')">💬 Message</button>
+                  <a href="/pages/public-profile.html?id=${u._id}" class="btn btn-sm btn-secondary">View Profile</a>
+                  <a href="/pages/requests.html?send=${u._id}" class="btn btn-sm btn-primary">Connect</a>
+                </div>
+              </div>
+            </div>`;
+        }).join('');
+      } catch(e) { Toast.error('Failed to load matches'); }
+    }
+
+    async function startChat(userId) {
+      try {
+        const res = await api.post(`/messages/start/${userId}`);
+        if (res && res.conversationId) {
+          window.location.href = `/pages/messages.html?conversation=${res.conversationId}`;
+        }
+      } catch (e) {
+        Toast.error(e.message || 'Could not start conversation');
+      }
+    }
+
+    async function toggleSave(userId, btn) {
+      try {
+        const data = await api.post(`/matches/save/${userId}`);
+        btn.classList.toggle('saved', data.saved);
+        Toast.success(data.message);
+      } catch(e) { Toast.error(e.message); }
+    }
+
+    render();
+  </script>
+</body>
+</html>

@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <meta
+    name="description"
+    content="Create your SkillSync account and start exchanging skills with students."
+  >
+
+  <meta
+    name="referrer"
+    content="strict-origin-when-cross-origin"
+  >
+
+  <title>Register - SkillSync</title>
+
+  <link
+    rel="stylesheet"
+    href="/css/global.css"
+  >
+
+  <link
+    rel="stylesheet"
+    href="/css/components.css"
+  >
+
+  <link
+    rel="stylesheet"
+    href="/css/auth.css"
+  >
+
+  <!-- Official Google Identity Services -->
+  <script
+    src="https://accounts.google.com/gsi/client"
+    async
+    defer>
+  </script>
+</head>
+
+<body>
+
+  <div class="auth-page">
+
+    <!-- Left Branding Section -->
+    <div class="auth-branding">
+
+      <div class="auth-branding-content">
+
+        <div class="brand-logo">
+
+          <div class="brand-logo-icon">
+            S
+          </div>
+
+          <div class="brand-logo-text">
+            SkillSync
+          </div>
+
+        </div>
+
+
+        <h2>
+          Learn What You Need.
+          <br>
+          Teach What You Know.
+          <br>
+          Grow Together.
+        </h2>
+
+
+        <p class="brand-desc">
+          Join students exchanging practical skills,
+          building real capability, and growing their
+          professional network.
+        </p>
+
+
+        <div class="auth-features">
+
+          <div class="auth-feature">
+
+            <div class="feature-icon">
+              &#127919;
+            </div>
+
+            <div class="feature-text">
+
+              <h4>
+                Smart Skill Matching
+              </h4>
+
+              <p>
+                Find students based on the skills
+                you want to learn and teach
+              </p>
+
+            </div>
+
+          </div>
+
+
+          <div class="auth-feature">
+
+            <div class="feature-icon">
+              &#128197;
+            </div>
+
+            <div class="feature-text">
+
+              <h4>
+                Structured Sessions
+              </h4>
+
+              <p>
+                Book and manage learning sessions easily
+              </p>
+
+            </div>
+
+          </div>
+
+
+          <div class="auth-feature">
+
+            <div class="feature-icon">
+              &#128200;
+            </div>
+
+            <div class="feature-text">
+
+              <h4>
+                Track Your Growth
+              </h4>
+
+              <p>
+                Monitor progress and earn achievements
+              </p>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <!-- Right Registration Section -->
+    <div class="auth-form-side">
+
+      <div class="auth-form-container">
+
+        <div class="auth-form-header">
+
+          <h1>
+            Create your account
+          </h1>
+
+          <p>
+            Already have an account?
+
+            <a href="/pages/login.html">
+              Sign in
+            </a>
+          </p>
+
+        </div>
+
+
+        <!-- Official Google Button -->
+        <div
+          id="googleSignInButton"
+          style="
+            display: flex;
+            justify-content: center;
+            width: 100%;
+            min-height: 44px;
+          "
+        ></div>
+
+
+        <div
+          class="form-error mt-md"
+          id="googleAuthError"
+          style="text-align: center;"
+        ></div>
+
+
+        <div class="auth-divider">
+
+          <span>
+            or register with email
+          </span>
+
+        </div>
+
+
+        <form
+          class="auth-form"
+          id="registerForm"
+          onsubmit="handleRegister(event)"
+        >
+
+          <div class="form-group">
+
+            <label
+              class="form-label"
+              for="fullName"
+            >
+              Full Name
+            </label>
+
+            <input
+              type="text"
+              class="form-input"
+              id="fullName"
+              placeholder="Enter your full name"
+              autocomplete="name"
+              required
+            >
+
+            <div
+              class="form-error"
+              id="nameError"
+            ></div>
+
+          </div>
+
+
+          <div class="form-group">
+
+            <label
+              class="form-label"
+              for="email"
+            >
+              Email Address
+            </label>
+
+            <input
+              type="email"
+              class="form-input"
+              id="email"
+              placeholder="your@email.com"
+              autocomplete="email"
+              required
+            >
+
+            <div
+              class="form-error"
+              id="emailError"
+            ></div>
+
+          </div>
+
+
+          <div class="form-group">
+
+            <label
+              class="form-label"
+              for="password"
+            >
+              SkillSync Password
+            </label>
+
+
+            <div class="password-toggle">
+
+              <input
+                type="password"
+                class="form-input"
+                id="password"
+                placeholder="Create your SkillSync password"
+                autocomplete="new-password"
+                required
+              >
+
+              <button
+                type="button"
+                class="toggle-btn"
+                onclick="togglePassword('password')"
+                aria-label="Show or hide password"
+              >
+                &#128065;
+              </button>
+
+            </div>
+
+
+            <div
+              class="password-strength"
+              id="passwordStrength"
+            >
+
+              <div class="strength-bar"></div>
+              <div class="strength-bar"></div>
+              <div class="strength-bar"></div>
+              <div class="strength-bar"></div>
+
+            </div>
+
+
+            <div
+              class="form-hint"
+              id="strengthText"
+            >
+              Enter a secure password
+            </div>
+
+
+            <div
+              class="form-error"
+              id="passwordError"
+            ></div>
+
+          </div>
+
+
+          <div class="form-group">
+
+            <label
+              class="form-label"
+              for="confirmPassword"
+            >
+              Confirm Password
+            </label>
+
+
+            <div class="password-toggle">
+
+              <input
+                type="password"
+                class="form-input"
+                id="confirmPassword"
+                placeholder="Enter the password again"
+                autocomplete="new-password"
+                required
+              >
+
+              <button
+                type="button"
+                class="toggle-btn"
+                onclick="togglePassword('confirmPassword')"
+                aria-label="Show or hide password"
+              >
+                &#128065;
+              </button>
+
+            </div>
+
+
+            <div
+              class="form-error"
+              id="confirmError"
+            ></div>
+
+          </div>
+
+
+          <div class="form-group">
+
+            <label class="form-checkbox">
+
+              <input
+                type="checkbox"
+                id="terms"
+                required
+              >
+
+              <span>
+                I agree to the
+                <a href="#">Terms of Service</a>
+                and
+                <a href="#">Privacy Policy</a>
+              </span>
+
+            </label>
+
+          </div>
+
+
+          <button
+            type="submit"
+            class="btn btn-primary btn-submit"
+            id="submitBtn"
+          >
+            Create Account
+          </button>
+
+        </form>
+
+
+        <div class="auth-footer-text">
+
+          <a href="/">
+            &larr; Back to SkillSync
+          </a>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <script src="/js/api.js"></script>
+
+
+  <script>
+    /*
+      Google Client ID is public.
+
+      Never place the Google Client Secret
+      inside frontend code.
+    */
+    const GOOGLE_CLIENT_ID =
+      '81008972539-8uvdv62bilplq51gsre50baedbf4oght.apps.googleusercontent.com';
+
+
+    /*
+      Redirect already authenticated users.
+
+      Google users who still need to create
+      their SkillSync password are sent to
+      set-password.html.
+    */
+    if (api.isAuthenticated()) {
+      const storedUser =
+        api.getUser();
+
+      window.location.href =
+        storedUser &&
+        storedUser.passwordSetupRequired
+          ? '/pages/set-password.html'
+          : '/pages/dashboard.html';
+    }
+
+
+    /*
+      Render official Google button.
+    */
+    window.addEventListener(
+      'load',
+      () => {
+        const errorElement =
+          document.getElementById(
+            'googleAuthError'
+          );
+
+        if (!GOOGLE_CLIENT_ID) {
+          errorElement.textContent =
+            'Google Client ID has not been configured.';
+
+          return;
+        }
+
+        if (
+          !window.google ||
+          !google.accounts ||
+          !google.accounts.id
+        ) {
+          errorElement.textContent =
+            'Google Sign-In could not be loaded. Check your internet connection.';
+
+          return;
+        }
+
+        google.accounts.id.initialize({
+          client_id:
+            GOOGLE_CLIENT_ID,
+
+          callback:
+            handleGoogleCredential,
+
+          ux_mode:
+            'popup',
+
+          auto_select:
+            false,
+
+          use_fedcm_for_button:
+            true
+        });
+
+
+        const container =
+          document.getElementById(
+            'googleSignInButton'
+          );
+
+
+        const buttonWidth =
+          Math.min(
+            container.clientWidth || 360,
+            400
+          );
+
+
+        google.accounts.id.renderButton(
+          container,
+          {
+            type:
+              'standard',
+
+            theme:
+              'outline',
+
+            size:
+              'large',
+
+            text:
+              'continue_with',
+
+            shape:
+              'rectangular',
+
+            logo_alignment:
+              'left',
+
+            width:
+              buttonWidth
+          }
+        );
+      }
+    );
+
+
+    function togglePassword(id) {
+      const input =
+        document.getElementById(id);
+
+      input.type =
+        input.type === 'password'
+          ? 'text'
+          : 'password';
+    }
+
+
+    /*
+      Password strength indicator.
+    */
+    document
+      .getElementById('password')
+      .addEventListener(
+        'input',
+        function () {
+          const value =
+            this.value;
+
+          const strengthElement =
+            document.getElementById(
+              'passwordStrength'
+            );
+
+          const strengthText =
+            document.getElementById(
+              'strengthText'
+            );
+
+          const passwordError =
+            document.getElementById(
+              'passwordError'
+            );
+
+
+          passwordError.textContent = '';
+
+
+          let strength = 0;
+
+
+          if (value.length >= 4) {
+            strength++;
+          }
+
+          if (value.length >= 8) {
+            strength++;
+          }
+
+          if (/[0-9]/.test(value)) {
+            strength++;
+          }
+
+          if (
+            /[^A-Za-z0-9]/.test(value)
+          ) {
+            strength++;
+          }
+
+
+          strengthElement.className =
+            'password-strength';
+
+
+          if (value.length === 0) {
+            strengthText.textContent =
+              'Enter a secure password';
+
+            strengthText.style.color =
+              '';
+
+          } else if (strength <= 2) {
+            strengthElement
+              .classList
+              .add('fair');
+
+            strengthText.textContent =
+              'Password strength: Fair';
+
+            strengthText.style.color =
+              '#f59e0b';
+
+          } else {
+            strengthElement
+              .classList
+              .add('strong');
+
+            strengthText.textContent =
+              'Password strength: Good';
+
+            strengthText.style.color =
+              '#10b981';
+          }
+        }
+      );
+
+
+    /*
+      Normal email registration.
+    */
+    async function handleRegister(
+      event
+    ) {
+      event.preventDefault();
+
+
+      const button =
+        document.getElementById(
+          'submitBtn'
+        );
+
+
+      button.disabled =
+        true;
+
+
+      button.innerHTML =
+        '<span class="btn-spinner"></span> Creating Account...';
+
+
+      document
+        .querySelectorAll(
+          '.form-error'
+        )
+        .forEach(
+          (element) => {
+            element.textContent = '';
+          }
+        );
+
+
+      const fullName =
+        document
+          .getElementById(
+            'fullName'
+          )
+          .value
+          .trim();
+
+
+      const email =
+        document
+          .getElementById(
+            'email'
+          )
+          .value
+          .trim();
+
+
+      const password =
+        document
+          .getElementById(
+            'password'
+          )
+          .value;
+
+
+      const confirmPassword =
+        document
+          .getElementById(
+            'confirmPassword'
+          )
+          .value;
+
+
+      if (!password) {
+        document
+          .getElementById(
+            'passwordError'
+          )
+          .textContent =
+            'Password is required';
+
+        button.disabled = false;
+
+        button.textContent =
+          'Create Account';
+
+        return;
+      }
+
+
+      if (
+        password !== confirmPassword
+      ) {
+        document
+          .getElementById(
+            'confirmError'
+          )
+          .textContent =
+            'Passwords do not match';
+
+        button.disabled = false;
+
+        button.textContent =
+          'Create Account';
+
+        return;
+      }
+
+
+      try {
+        const data =
+          await api.post(
+            '/auth/register',
+            {
+              fullName,
+              email,
+              password,
+              confirmPassword
+            }
+          );
+
+
+        api.setToken(
+          data.token
+        );
+
+
+        api.setUser({
+          ...data.user,
+
+          passwordSetupRequired:
+            false
+        });
+
+
+        Toast.success(
+          'Account created successfully!'
+        );
+
+
+        setTimeout(
+          () => {
+            window.location.href =
+              '/pages/dashboard.html';
+          },
+          500
+        );
+
+      } catch (error) {
+        if (
+          error.errors &&
+          error.errors.length > 0
+        ) {
+          error.errors.forEach(
+            (validationError) => {
+              const field =
+                validationError.field;
+
+
+              const element =
+                document.getElementById(
+                  field + 'Error'
+                ) ||
+                document.getElementById(
+                  field === 'fullName'
+                    ? 'nameError'
+                    : field === 'password'
+                      ? 'passwordError'
+                      : ''
+                );
+
+
+              if (element) {
+                element.textContent =
+                  validationError.message;
+              }
+            }
+          );
+
+
+          const messages =
+            error.errors
+              .map(
+                (validationError) =>
+                  validationError.message
+              )
+              .join('. ');
+
+
+          Toast.error(messages);
+
+        } else {
+          Toast.error(
+            error.message ||
+            'Registration failed'
+          );
+        }
+
+
+        button.disabled =
+          false;
+
+
+        button.textContent =
+          'Create Account';
+      }
+    }
+
+
+    /*
+      Receives the real Google-signed token
+      after the user selects an account.
+    */
+    async function handleGoogleCredential(
+      response
+    ) {
+      const errorElement =
+        document.getElementById(
+          'googleAuthError'
+        );
+
+
+      errorElement.textContent = '';
+
+
+      if (
+        !response ||
+        !response.credential
+      ) {
+        const message =
+          'Google did not return a valid credential.';
+
+
+        errorElement.textContent =
+          message;
+
+
+        Toast.error(message);
+
+
+        return;
+      }
+
+
+      try {
+        Toast.info(
+          'Verifying your Google account...'
+        );
+
+
+        /*
+          Send only Google's signed credential.
+
+          Email, name and Google ID are read
+          securely by the backend from this token.
+        */
+        const data =
+          await api.post(
+            '/auth/google',
+            {
+              credential:
+                response.credential
+            }
+          );
+
+
+        api.setToken(
+          data.token
+        );
+
+
+        api.setUser({
+          ...data.user,
+
+          passwordSetupRequired:
+            Boolean(
+              data.needsPasswordSetup
+            )
+        });
+
+
+        const nextPage =
+          data.needsPasswordSetup
+            ? '/pages/set-password.html'
+            : '/pages/dashboard.html';
+
+
+        Toast.success(
+          data.needsPasswordSetup
+            ? 'Google verified! Create your SkillSync password.'
+            : 'Google authentication successful!'
+        );
+
+
+        setTimeout(
+          () => {
+            window.location.href =
+              nextPage;
+          },
+          500
+        );
+
+      } catch (error) {
+        const message =
+          error.message ||
+          'Google authentication failed';
+
+
+        errorElement.textContent =
+          message;
+
+
+        Toast.error(message);
+      }
+    }
+  </script>
+
+</body>
+
+</html>

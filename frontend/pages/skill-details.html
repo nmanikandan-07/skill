@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Skill Details – SkillSync</title>
+  <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/skills.css">
+  <link rel="stylesheet" href="/css/profile.css">
+</head>
+<body>
+  <div class="app-layout" id="app"></div>
+  <script src="/js/api.js"></script>
+  <script src="/js/components.js"></script>
+  <script>
+    if (!initAuthPage()) throw new Error('Not authenticated');
+    const skillId = new URLSearchParams(window.location.search).get('id');
+    let activeTab = 'overview';
+
+    async function loadSkillDetails() {
+      if (!skillId) { window.location.href = '/pages/explore-skills.html'; return; }
+      try {
+        const data = await api.get(`/skills/${skillId}`);
+        const s = data.skill;
+        document.getElementById('app').innerHTML = renderAuthenticatedLayout(s.name, 'explore', `
+          <div class="skill-detail-header animate-fade-in-up">
+            <div class="skill-detail-icon">${s.icon || '📚'}</div>
+            <div class="skill-detail-info">
+              <h1>${s.name}</h1>
+              <div class="skill-detail-meta">
+                <span>📂 ${s.category}</span>
+                <span>📊 ${s.difficulty}</span>
+                <span>👥 ${data.learnerCount || 0} learners</span>
+                <span>👨‍🏫 ${data.teacherCount || 0} mentors</span>
+              </div>
+            </div>
+            <div style="margin-left:auto;">
+              <button class="btn btn-primary" onclick="addToLearning()">➕ Add to Learning Goals</button>
+            </div>
+          </div>
+          <div class="tabs">
+            <button class="tab active" onclick="switchTab('overview',this)">Overview</button>
+            <button class="tab" onclick="switchTab('roadmap',this)">Roadmap</button>
+            <button class="tab" onclick="switchTab('mentors',this)">Mentors</button>
+          </div>
+          <div class="skill-detail-grid">
+            <div>
+              <div id="tabContent">
+                <div class="card">
+                  <h3 style="margin-bottom:16px;">About This Skill</h3>
+                  <p class="skill-about">${s.description || 'A comprehensive skill for personal and professional growth.'}</p>
+                  ${s.prerequisites?.length ? `<h4 style="margin-top:24px;margin-bottom:12px;">Prerequisites</h4><div class="skill-tags">${s.prerequisites.map(p => `<span class="chip">${p}</span>`).join('')}</div>` : ''}
+                  ${s.tags?.length ? `<h4 style="margin-top:24px;margin-bottom:12px;">Related Tags</h4><div class="skill-tags">${s.tags.map(t => `<span class="chip chip-primary">${t}</span>`).join('')}</div>` : ''}
+                </div>
+              </div>
+            </div>
+            <div>
+              <div class="card mb-2xl">
+                <h3 style="margin-bottom:16px;">Skill Summary</h3>
+                <div style="display:flex;flex-direction:column;gap:12px;">
+                  <div class="flex-between"><span class="text-muted">Category</span><strong>${s.category}</strong></div>
+                  <div class="flex-between"><span class="text-muted">Difficulty</span><span class="badge badge-${s.difficulty === 'Beginner' ? 'active' : s.difficulty === 'Advanced' ? 'pending' : 'completed'}">${s.difficulty}</span></div>
+                  <div class="flex-between"><span class="text-muted">Learners</span><strong>${data.learnerCount}</strong></div>
+                  <div class="flex-between"><span class="text-muted">Mentors</span><strong>${data.teacherCount}</strong></div>
+                </div>
+              </div>
+              <div class="card">
+                <h3 style="margin-bottom:16px;">Top Mentors</h3>
+                ${data.mentors?.length > 0 ? data.mentors.slice(0,3).map(m => `
+                  <div class="mentor-card" onclick="window.location.href='/pages/public-profile.html?id=${m._id}'">
+                    ${renderAvatar(m, 'sm')}
+                    <div class="mentor-info"><h4>${m.fullName}</h4><p>${m.department || 'Student'} • ${m.level || ''}</p></div>
+                    <span class="chip chip-success">${m.isVerified ? '✓ Verified' : m.level || ''}</span>
+                  </div>
+                `).join('') : '<p class="text-muted text-center" style="padding:20px;">No mentors yet. Be the first!</p>'}
+              </div>
+            </div>
+          </div>
+        `);
+
+        window._skillData = data;
+      } catch(e) { Toast.error('Failed to load skill details'); }
+    }
+
+    function switchTab(tab, el) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      el.classList.add('active');
+      const data = window._skillData;
+      const s = data.skill;
+      const content = document.getElementById('tabContent');
+
+      if (tab === 'overview') {
+        content.innerHTML = `<div class="card"><h3 style="margin-bottom:16px;">About This Skill</h3><p class="skill-about">${s.description || 'A comprehensive skill for growth.'}</p></div>`;
+      } else if (tab === 'roadmap') {
+        content.innerHTML = `<div class="card"><h3 style="margin-bottom:16px;">Learning Roadmap</h3>${s.roadmap?.length > 0 ? `<div class="roadmap-steps">${s.roadmap.map(r => `<div class="roadmap-step"><h4>Step ${r.step}: ${r.title}</h4><p>${r.description}</p>${r.duration ? `<span class="duration">⏱ ${r.duration}</span>` : ''}</div>`).join('')}</div>` : '<p class="text-muted">No roadmap available for this skill yet.</p>'}</div>`;
+      } else if (tab === 'mentors') {
+        content.innerHTML = `<div class="card"><h3 style="margin-bottom:16px;">Available Mentors</h3>${data.mentors?.length > 0 ? data.mentors.map(m => `<div class="mentor-card" onclick="window.location.href='/pages/public-profile.html?id=${m._id}'">${renderAvatar(m,'md')}<div class="mentor-info"><h4>${m.fullName}</h4><p>${m.department||'Student'}</p></div><div>${renderStarRating(m.rating||0)}</div><a class="btn btn-sm btn-outline" href="/pages/public-profile.html?id=${m._id}">View</a></div>`).join('') : '<p class="text-muted text-center" style="padding:20px;">No mentors available yet.</p>'}</div>`;
+      }
+    }
+
+    async function addToLearning() {
+      try {
+        await api.post('/user-skills', { skillId, type: 'learn', level: 'Beginner' });
+        Toast.success('Added to your learning goals!');
+      } catch(e) { Toast.error(e.message || 'Failed to add skill'); }
+    }
+
+    loadSkillDetails();
+  </script>
+</body>
+</html>

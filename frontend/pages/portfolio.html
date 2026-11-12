@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Skill Portfolio – SkillSync</title>
+  <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/profile.css">
+</head>
+<body>
+  <div class="app-layout" id="app"></div>
+  <script src="/js/skill-icons.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/components.js"></script>
+  <script>
+    if (!initAuthPage()) throw new Error('Not authenticated');
+
+    async function loadPortfolio() {
+      try {
+        const [userRes, progressRes, reviewRes] = await Promise.all([
+          api.get('/users/me'),
+          api.get('/progress'),
+          api.get(`/reviews/${api.getUser()._id}`)
+        ]);
+
+        const u = userRes.user;
+        const teachSkills = userRes.teachSkills || [];
+        const learnSkills = userRes.learnSkills || [];
+        const achievements = progressRes.userAchievements || [];
+        const reviews = reviewRes.reviews || [];
+
+        document.getElementById('app').innerHTML = renderAuthenticatedLayout('Skill Portfolio', 'portfolio', `
+          <div class="page-header flex-between">
+            <div>
+              <h1>Student Skill Portfolio</h1>
+              <p>Your verified academic & peer skill achievements, endorsements, and exchange records.</p>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button class="btn btn-secondary" onclick="copyPortfolioLink()">🔗 Share Portfolio</button>
+              <button class="btn btn-primary" onclick="window.print()">🖨️ Export PDF</button>
+            </div>
+          </div>
+
+          <!-- Hero Portfolio Card -->
+          <div class="card mb-2xl animate-fade-in-up" style="background: linear-gradient(135deg, #0A1020 0%, #1A2340 100%); color:white; border:none; padding:36px;">
+            <div style="display:flex; align-items:center; gap:24px; flex-wrap:wrap;">
+              <div class="profile-avatar-large" style="width:90px; height:90px; border-color:rgba(255,255,255,0.2);">
+                ${u.profileImage ? `<img src="${u.profileImage}" alt="${u.fullName}">` : getInitials(u.fullName)}
+              </div>
+              <div style="flex:1; min-width:240px;">
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;">
+                  <h2 style="color:white; font-size:26px; font-weight:700;">${u.fullName}</h2>
+                  ${u.isVerified ? '<span class="chip chip-success" style="background:rgba(5,150,105,0.2); color:#34D399; font-size:11px;">✓ Verified Student</span>' : ''}
+                </div>
+                <p style="color:rgba(255,255,255,0.7); font-size:14px; margin-bottom:12px;">
+                  ${u.department || 'Student'} ${u.year ? '• ' + u.year : ''} ${u.college ? '• ' + u.college : ''}
+                </p>
+                <div style="display:flex; gap:20px; flex-wrap:wrap;">
+                  <div><strong style="font-size:20px; color:#818CF8;">${u.rating > 0 ? u.rating.toFixed(1) : '5.0'} ★</strong><p style="font-size:11px; color:rgba(255,255,255,0.5);">Peer Rating</p></div>
+                  <div><strong style="font-size:20px; color:#34D399;">${u.totalHoursExchanged || 0} hrs</strong><p style="font-size:11px; color:rgba(255,255,255,0.5);">Exchange Time</p></div>
+                  <div><strong style="font-size:20px; color:#FBBF24;">${u.completedSessions || 0}</strong><p style="font-size:11px; color:rgba(255,255,255,0.5);">Sessions Done</p></div>
+                  <div><strong style="font-size:20px; color:#F472B6;">${achievements.length}</strong><p style="font-size:11px; color:rgba(255,255,255,0.5);">Badges Earned</p></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <!-- Verified Teaching Skills -->
+            <div class="card mb-2xl">
+              <h3 style="margin-bottom:16px;">Verified Teaching Competencies</h3>
+              <p style="font-size:13px; color:var(--text-muted); margin-bottom:20px;">Skills this student has demonstrated competence in and taught to other students.</p>
+              ${teachSkills.length > 0 ? `
+                <div style="display:flex; flex-direction:column; gap:12px;">
+                  ${teachSkills.map(s => `
+                    <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 16px; background:var(--bg-page); border-radius:var(--radius-md); border:1px solid var(--border);">
+                      <div style="display:flex; align-items:center; gap:12px;">
+                        <span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;">${SkillIcons.getIconSvg(s.skillName)}</span>
+                        <div>
+                          <strong style="font-size:14px;">${s.skillName}</strong>
+                          <div style="font-size:12px; color:var(--text-muted);">${s.skillId?.category || 'Skill'}</div>
+                        </div>
+                      </div>
+                      <div style="text-align:right;">
+                        <span class="chip chip-success" style="font-size:11px;">${s.level}</span>
+                        <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">${s.isVerified ? '✓ Verified' : 'Peer Endorsed'}</div>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              ` : '<p class="text-muted text-center" style="padding:24px;">No teaching competencies listed yet.</p>'}
+            </div>
+
+            <!-- Learning Accomplishments -->
+            <div class="card mb-2xl">
+              <h3 style="margin-bottom:16px;">Learning Goals & Masteries</h3>
+              <p style="font-size:13px; color:var(--text-muted); margin-bottom:20px;">Subjects actively acquired and mastered through structured peer exchanges.</p>
+              ${learnSkills.length > 0 ? `
+                <div style="display:flex; flex-direction:column; gap:12px;">
+                  ${learnSkills.map(s => `
+                    <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 16px; background:var(--bg-page); border-radius:var(--radius-md); border:1px solid var(--border);">
+                      <div style="display:flex; align-items:center; gap:12px;">
+                        <span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;">${SkillIcons.getIconSvg(s.skillName)}</span>
+                        <div>
+                          <strong style="font-size:14px;">${s.skillName}</strong>
+                          <div style="font-size:12px; color:var(--text-muted);">${s.skillId?.category || 'Track'}</div>
+                        </div>
+                      </div>
+                      <div>
+                        <span class="chip chip-purple" style="font-size:11px;">${s.level}</span>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              ` : '<p class="text-muted text-center" style="padding:24px;">No learning goals listed yet.</p>'}
+            </div>
+          </div>
+
+          <!-- Earned Badges Showcase -->
+          <div class="card mb-2xl">
+            <h3 style="margin-bottom:16px;">Earned Badges & Micro-Credentials</h3>
+            ${achievements.length > 0 ? `
+              <div class="achievements-grid">
+                ${achievements.map(a => {
+                  const ach = a.achievement || a;
+                  return `
+                    <div class="achievement-card">
+                      <div class="achievement-icon">${ach.icon || '🏅'}</div>
+                      <h4>${ach.name}</h4>
+                      <p>${ach.description}</p>
+                      <span class="chip chip-success" style="font-size:10px; margin-top:8px;">Earned ${formatDate(a.unlockedAt || new Date())}</span>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            ` : '<p class="text-muted text-center" style="padding:24px;">No badges earned yet. Complete sessions to unlock credentials!</p>'}
+          </div>
+
+          <!-- Peer Reviews & Testimonials -->
+          <div class="card">
+            <h3 style="margin-bottom:16px;">Peer Testimonials & Endorsements</h3>
+            ${reviews.length > 0 ? `
+              <div style="display:flex; flex-direction:column; gap:16px;">
+                ${reviews.map(r => `
+                  <div style="padding:16px; background:var(--bg-page); border-radius:var(--radius-md); border:1px solid var(--border);">
+                    <div class="flex-between" style="margin-bottom:6px;">
+                      <div style="display:flex; align-items:center; gap:8px;">
+                        <strong style="font-size:14px;">${r.reviewer?.fullName || 'Student'}</strong>
+                        ${renderStarRating(r.rating)}
+                      </div>
+                      <span style="font-size:12px; color:var(--text-muted);">${timeAgo(r.createdAt)}</span>
+                    </div>
+                    <p style="font-size:13px; color:var(--text-secondary); font-style:italic;">"${r.comment}"</p>
+                    ${r.skillName ? `<span class="chip chip-primary" style="font-size:10px; margin-top:8px;">${r.skillName}</span>` : ''}
+                  </div>
+                `).join('')}
+              </div>
+            ` : '<p class="text-muted text-center" style="padding:24px;">No testimonials yet.</p>'}
+          </div>
+        `);
+      } catch (e) {
+        Toast.error('Failed to load portfolio');
+      }
+    }
+
+    function copyPortfolioLink() {
+      const url = window.location.origin + `/pages/public-profile.html?id=${api.getUser()?._id}`;
+      navigator.clipboard.writeText(url).then(() => {
+        Toast.success('Portfolio link copied to clipboard!');
+      }).catch(() => {
+        Toast.info('Portfolio link: ' + url);
+      });
+    }
+
+    loadPortfolio();
+  </script>
+</body>
+</html>

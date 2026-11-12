@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard – SkillSync</title>
+  <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/dashboard.css">
+  <link rel="stylesheet" href="/css/matches.css">
+</head>
+<body>
+  <div class="app-layout" id="app"></div>
+  <script src="/js/api.js"></script>
+  <script src="/js/components.js"></script>
+  <script>
+    if (!initAuthPage()) throw new Error('Not authenticated');
+    const user = api.getUser();
+
+    async function loadDashboard() {
+      const app = document.getElementById('app');
+      app.innerHTML = renderAuthenticatedLayout('Dashboard', 'dashboard', `
+        <div class="dashboard-welcome animate-fade-in-up">
+          <h1>${getGreeting()}, ${user?.fullName?.split(' ')[0] || 'there'} 👋</h1>
+          <p>Here's what's moving in your learning network today.</p>
+        </div>
+        <div class="stats-row" id="statsRow">
+          <div class="stat-card"><div class="stat-icon primary">📚</div><div class="stat-content"><h3 id="statTeaching">-</h3><p>Skills Teaching</p></div></div>
+          <div class="stat-card"><div class="stat-icon purple">🎓</div><div class="stat-content"><h3 id="statLearning">-</h3><p>Skills Learning</p></div></div>
+          <div class="stat-card"><div class="stat-icon success">🤝</div><div class="stat-content"><h3 id="statExchanges">-</h3><p>Active Exchanges</p></div></div>
+          <div class="stat-card"><div class="stat-icon warning">✅</div><div class="stat-content"><h3 id="statSessions">-</h3><p>Sessions Completed</p></div></div>
+        </div>
+        <div class="dashboard-grid">
+          <div>
+            <div class="dashboard-card mb-2xl">
+              <div class="dashboard-card-header">
+                <h3>Recommended Matches</h3>
+                <a href="/pages/matches.html">View All →</a>
+              </div>
+              <div id="matchesPreview">${renderSkeletonCards(3)}</div>
+            </div>
+            <div class="dashboard-card">
+              <div class="dashboard-card-header">
+                <h3>Upcoming Sessions</h3>
+                <a href="/pages/sessions.html">View All →</a>
+              </div>
+              <div id="sessionsPreview"></div>
+            </div>
+          </div>
+          <div>
+            <div class="dashboard-card mb-2xl">
+              <div class="dashboard-card-header"><h3>Profile Strength</h3></div>
+              <div id="profileStrength"></div>
+            </div>
+            <div class="dashboard-card mb-2xl">
+              <div class="dashboard-card-header"><h3>Quick Actions</h3></div>
+              <div style="display:flex;flex-direction:column;gap:8px;">
+                <a href="/pages/my-skills.html" class="btn btn-secondary" style="justify-content:flex-start;">🎯 Add Skills</a>
+                <a href="/pages/explore-skills.html" class="btn btn-secondary" style="justify-content:flex-start;">🔍 Explore Skills</a>
+                <a href="/pages/find-people.html" class="btn btn-secondary" style="justify-content:flex-start;">👥 Find People</a>
+                <a href="/pages/edit-profile.html" class="btn btn-secondary" style="justify-content:flex-start;">✏️ Edit Profile</a>
+              </div>
+            </div>
+            <div class="dashboard-card">
+              <div class="dashboard-card-header"><h3>Recent Activity</h3></div>
+              <div id="activityFeed"></div>
+            </div>
+          </div>
+        </div>
+      `);
+
+      loadDashboardData();
+    }
+
+    async function loadDashboardData() {
+      try {
+        const data = await api.get('/dashboard');
+        
+        document.getElementById('statTeaching').textContent = data.stats.teachingCount;
+        document.getElementById('statLearning').textContent = data.stats.learningCount;
+        document.getElementById('statExchanges').textContent = data.stats.activeExchanges;
+        document.getElementById('statSessions').textContent = data.stats.completedSessions;
+
+        // Profile Strength
+        const completion = data.profileCompletion || 10;
+        document.getElementById('profileStrength').innerHTML = `
+          <div class="profile-strength">
+            <div class="profile-strength-header">
+              <span>Profile Completion</span>
+              <strong>${completion}%</strong>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" style="width:${completion}%"></div>
+            </div>
+            <div class="strength-items">
+              <div class="strength-item completed"><span class="check-icon">✓</span> Basic info added</div>
+              <div class="strength-item ${completion >= 30 ? 'completed' : ''}"><span class="check-icon">${completion >= 30 ? '✓' : '○'}</span> Department & year</div>
+              <div class="strength-item ${completion >= 50 ? 'completed' : ''}"><span class="check-icon">${completion >= 50 ? '✓' : '○'}</span> Bio & interests</div>
+              <div class="strength-item ${completion >= 75 ? 'completed' : ''}"><span class="check-icon">${completion >= 75 ? '✓' : '○'}</span> Profile photo</div>
+              <div class="strength-item ${data.stats.teachingCount > 0 ? 'completed' : ''}"><span class="check-icon">${data.stats.teachingCount > 0 ? '✓' : '○'}</span> Add teaching skills</div>
+              <div class="strength-item ${data.stats.learningCount > 0 ? 'completed' : ''}"><span class="check-icon">${data.stats.learningCount > 0 ? '✓' : '○'}</span> Add learning goals</div>
+            </div>
+          </div>
+        `;
+
+        // Load matches preview
+        try {
+          const matchData = await api.get('/matches?limit=3');
+          const matchesEl = document.getElementById('matchesPreview');
+          if (matchData.matches && matchData.matches.length > 0) {
+            matchesEl.innerHTML = matchData.matches.map(m => `
+              <div class="match-preview" onclick="window.location.href='/pages/public-profile.html?id=${m.user._id}'">
+                ${renderAvatar(m.user, 'md')}
+                <div class="match-info">
+                  <h4>${m.user.fullName}</h4>
+                  <p>${m.user.department || 'Student'}</p>
+                  <div class="match-tags">
+                    ${(m.matchedSkills?.canTeach || []).slice(0,2).map(s => `<span class="chip chip-success">${s}</span>`).join('')}
+                    ${(m.matchedSkills?.canLearn || []).slice(0,2).map(s => `<span class="chip chip-purple">${s}</span>`).join('')}
+                  </div>
+                </div>
+                ${renderMatchRing(m.matchPercentage)}
+              </div>
+            `).join('');
+          } else {
+            matchesEl.innerHTML = renderEmptyState('🤝', 'No Matches Yet', 'Add your teaching and learning skills to get matched with other students.', 'Add Skills', '/pages/my-skills.html');
+          }
+        } catch(e) {
+          document.getElementById('matchesPreview').innerHTML = renderEmptyState('🤝', 'No Matches Yet', 'Add skills to get started.', 'Add Skills', '/pages/my-skills.html');
+        }
+
+        // Sessions preview
+        const sessionsEl = document.getElementById('sessionsPreview');
+        if (data.upcomingSessions && data.upcomingSessions.length > 0) {
+          sessionsEl.innerHTML = data.upcomingSessions.map(s => {
+            const d = new Date(s.date);
+            return `
+              <div class="session-preview">
+                <div class="session-date">
+                  <div class="date-day">${d.getDate()}</div>
+                  <div class="date-month">${d.toLocaleString('en', {month:'short'})}</div>
+                </div>
+                <div class="session-info">
+                  <h4>${s.skillName || 'Learning Session'}</h4>
+                  <p>${s.startTime} - ${s.endTime} • ${s.mode}</p>
+                </div>
+                <span class="badge badge-scheduled">Scheduled</span>
+              </div>
+            `;
+          }).join('');
+        } else {
+          sessionsEl.innerHTML = '<div class="empty-state" style="padding:24px;"><div class="empty-icon" style="width:48px;height:48px;font-size:20px;">📅</div><h3 style="font-size:14px;">No Upcoming Sessions</h3><p style="font-size:13px;">Book a session with your skill partners.</p></div>';
+        }
+
+        // Activity feed
+        const activityEl = document.getElementById('activityFeed');
+        if (data.recentActivity && data.recentActivity.length > 0) {
+          activityEl.innerHTML = data.recentActivity.slice(0,5).map(a => `
+            <div class="activity-item">
+              <div class="activity-icon">📋</div>
+              <div class="activity-content">
+                <p>${a.details}</p>
+                <span class="activity-time">${timeAgo(a.createdAt)}</span>
+              </div>
+            </div>
+          `).join('');
+        } else {
+          activityEl.innerHTML = '<p class="text-muted text-center" style="padding:20px;">No recent activity yet.</p>';
+        }
+      } catch (error) {
+        Toast.error('Failed to load dashboard data');
+      }
+    }
+
+    loadDashboard();
+  </script>
+</body>
+</html>

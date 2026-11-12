@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Exchange Requests – SkillSync</title>
+  <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/requests.css">
+</head>
+<body>
+  <div class="app-layout" id="app"></div>
+  <script src="/js/api.js"></script>
+  <script src="/js/components.js"></script>
+  <script>
+    if (!initAuthPage()) throw new Error('Not authenticated');
+    let activeTab = 'received';
+
+    function render() {
+      document.getElementById('app').innerHTML = renderAuthenticatedLayout('Exchange Requests', 'requests', `
+        <div class="page-header"><h1>Exchange Requests</h1><p>Manage your skill exchange requests.</p></div>
+        <div class="tabs">
+          <button class="tab ${activeTab==='received'?'active':''}" onclick="switchTab('received')">Received</button>
+          <button class="tab ${activeTab==='sent'?'active':''}" onclick="switchTab('sent')">Sent</button>
+        </div>
+        <div id="requestsList">${renderSkeletonCards(3)}</div>
+      `);
+      loadRequests();
+    }
+
+    function switchTab(tab) { activeTab = tab; render(); }
+
+    async function loadRequests() {
+      try {
+        const data = await api.get(`/exchange-requests/${activeTab}`);
+        const el = document.getElementById('requestsList');
+        if (!data.requests || data.requests.length === 0) {
+          el.innerHTML = renderEmptyState('📨', 'No Requests Yet', activeTab==='received'?'You haven\'t received any exchange requests yet.':'You haven\'t sent any exchange requests yet.', 'Find Matches', '/pages/matches.html');
+          return;
+        }
+        el.innerHTML = `<div class="requests-list">${data.requests.map(r => {
+          const otherUser = activeTab === 'received' ? r.fromUser : r.toUser;
+          return `
+            <div class="request-card animate-fade-in">
+              <div class="request-card-header">
+                <div class="request-avatar">${otherUser?.profileImage?`<img src="${otherUser.profileImage}">`:(getInitials(otherUser?.fullName||''))}</div>
+                <div class="request-info">
+                  <h4>${otherUser?.fullName || 'Unknown'}</h4>
+                  <span class="request-date">${timeAgo(r.createdAt)}</span>
+                </div>
+                <span class="badge badge-${r.status}">${r.status}</span>
+              </div>
+              <div class="request-skills">
+                <div class="request-skill"><div class="label">${activeTab==='received'?'They Teach':'You Teach'}</div><div class="skill-name">${activeTab==='received'?r.teachSkillName||r.teachSkill?.name||'—':r.learnSkillName||r.learnSkill?.name||'—'}</div></div>
+                <div class="request-exchange-icon">⇄</div>
+                <div class="request-skill"><div class="label">${activeTab==='received'?'They Want':'You Want'}</div><div class="skill-name">${activeTab==='received'?r.learnSkillName||r.learnSkill?.name||'—':r.teachSkillName||r.teachSkill?.name||'—'}</div></div>
+              </div>
+              ${r.message ? `<div class="request-message">"${r.message}"</div>` : ''}
+              <div class="request-card-footer">
+                <span class="chip">${r.matchPercentage||0}% Match</span>
+                <div class="request-actions">
+                  ${r.status === 'accepted' ? `<button class="btn btn-sm btn-primary" onclick="startChat('${otherUser?._id}')">💬 Message</button>` : ''}
+                  ${r.status === 'pending' && activeTab === 'received' ? `
+                    <button class="btn btn-sm btn-success" onclick="handleRequest('${r._id}','accept')">✓ Accept</button>
+                    <button class="btn btn-sm btn-danger" onclick="handleRequest('${r._id}','reject')">✕ Decline</button>
+                  ` : ''}
+                  ${r.status === 'pending' && activeTab === 'sent' ? `
+                    <button class="btn btn-sm btn-secondary" onclick="handleRequest('${r._id}','cancel')">Cancel</button>
+                  ` : ''}
+                  <a href="/pages/public-profile.html?id=${otherUser?._id}" class="btn btn-sm btn-ghost">View Profile</a>
+                </div>
+              </div>
+            </div>`;
+        }).join('')}</div>`;
+      } catch(e) { Toast.error('Failed to load requests'); }
+    }
+
+    async function startChat(userId) {
+      if (!userId) return;
+      try {
+        const res = await api.post(`/messages/start/${userId}`);
+        if (res && res.conversationId) {
+          window.location.href = `/pages/messages.html?conversation=${res.conversationId}`;
+        }
+      } catch (e) {
+        Toast.error(e.message || 'Could not start conversation');
+      }
+    }
+
+    async function handleRequest(id, action) {
+      try {
+        await api.put(`/exchange-requests/${id}/${action}`);
+        Toast.success(`Request ${action}ed!`);
+        render();
+      } catch(e) { Toast.error(e.message); }
+    }
+
+    render();
+  </script>
+</body>
+</html>

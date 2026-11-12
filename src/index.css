@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-[#F8F9FF] text-[#10213A] font-sans antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  /* Custom subtle scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #CBD5E1;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #94A3B8;
+  }
+}
+
+@layer components {
+  /* Cards */
+  .ss-card {
+    @apply bg-white rounded-[18px] border border-[#E4E7F2] shadow-sm;
+  }
+
+  .ss-card-hover {
+    @apply transition-all duration-200 hover:shadow-card hover:border-[#D0D7E8];
+  }
+
+  /* Buttons */
+  .ss-btn-primary {
+    @apply inline-flex items-center justify-center font-medium text-[14px] bg-[#4F46E5] hover:bg-[#4338CA] active:bg-[#3730D3] text-white rounded-[12px] px-4 py-2.5 transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/40 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .ss-btn-secondary {
+    @apply inline-flex items-center justify-center font-medium text-[14px] bg-white hover:bg-[#F8F9FF] active:bg-[#EEF3FF] text-[#10213A] border border-[#E4E7F2] rounded-[12px] px-4 py-2.5 transition-all focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/20 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .ss-btn-ghost {
+    @apply inline-flex items-center justify-center font-medium text-[14px] text-[#5E6680] hover:text-[#10213A] hover:bg-[#F1F4F9] rounded-[12px] px-3.5 py-2 transition-all;
+  }
+
+  /* Inputs */
+  .ss-input {
+    @apply w-full bg-white border border-[#E4E7F2] rounded-[12px] px-3.5 py-2.5 text-[14px] text-[#10213A] placeholder-[#8992AA] focus:outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5]/15 transition-all;
+  }
+
+  /* Badges */
+  .ss-badge {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-medium;
+  }
+  
+  .ss-badge-purple {
+    @apply bg-[#EEF2FF] text-[#4F46E5] border border-[#C7D2FE];
+  }
+
+  .ss-badge-green {
+    @apply bg-[#D9F4E9] text-[#087F5B] border border-[#A7F3D0];
+  }
+
+  .ss-badge-amber {
+    @apply bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A];
+  }
+
+  .ss-badge-gray {
+    @apply bg-[#F1F4F9] text-[#5E6680] border border-[#E4E7F2];
+  }
+}

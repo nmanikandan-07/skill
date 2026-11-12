@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Profile – SkillSync</title>
+  <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/profile.css">
+  <link rel="stylesheet" href="/css/requests.css">
+</head>
+<body>
+  <div class="app-layout" id="app"></div>
+
+  <!-- Request Exchange Modal -->
+  <div class="modal-overlay" id="exchangeModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Request Skill Exchange</h3>
+        <button class="modal-close" onclick="closeExchangeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Skill You Want to Learn (From <span id="partnerNameModal">Partner</span>)</label>
+          <select class="form-select" id="wantSkillSelect">
+            <option value="">Select skill...</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Skill You Can Teach (In Return)</label>
+          <select class="form-select" id="teachSkillSelect">
+            <option value="">Select your teaching skill...</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Proposed Weekly Commitment</label>
+          <select class="form-select" id="proposedDuration">
+            <option value="1 hour/week">1 hour / week</option>
+            <option value="2 hours/week" selected>2 hours / week</option>
+            <option value="3-4 hours/week">3-4 hours / week</option>
+            <option value="Flexible">Flexible</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Personal Message</label>
+          <textarea class="form-textarea" id="requestMessage" placeholder="Introduce yourself, your goals, and why you'd make great exchange partners..." rows="3"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeExchangeModal()">Cancel</button>
+        <button class="btn btn-primary" id="sendRequestBtn" onclick="submitExchangeRequest()">Send Exchange Request</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Leave Review Modal -->
+  <div class="modal-overlay" id="reviewModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Leave a Review</h3>
+        <button class="modal-close" onclick="closeReviewModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Rating</label>
+          <div class="star-rating" id="reviewRatingInput" style="font-size:24px; cursor:pointer;">
+            <span class="star" data-val="1" onclick="setReviewRating(1)">★</span>
+            <span class="star" data-val="2" onclick="setReviewRating(2)">★</span>
+            <span class="star" data-val="3" onclick="setReviewRating(3)">★</span>
+            <span class="star" data-val="4" onclick="setReviewRating(4)">★</span>
+            <span class="star" data-val="5" onclick="setReviewRating(5)">★</span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Skill Exchanged</label>
+          <input class="form-input" id="reviewSkillName" placeholder="e.g., Python, UI Design">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Feedback</label>
+          <textarea class="form-textarea" id="reviewComment" placeholder="Share your experience working with this student..." rows="3"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeReviewModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="submitReview()">Submit Review</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/skill-icons.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/components.js"></script>
+  <script>
+    if (!initAuthPage()) throw new Error('Not authenticated');
+    const targetUserId = new URLSearchParams(window.location.search).get('id');
+    let targetUserData = null;
+    let myTeachingSkills = [];
+    let selectedRating = 5;
+
+    async function loadPublicProfile() {
+      if (!targetUserId) {
+        window.location.href = '/pages/matches.html';
+        return;
+      }
+      
+      const currentUserId = api.getUser()?._id;
+      if (targetUserId === currentUserId) {
+        window.location.href = '/pages/profile.html';
+        return;
+      }
+
+      try {
+        const data = await api.get(`/users/${targetUserId}`);
+        targetUserData = data;
+        const u = data.user;
+
+        document.getElementById('app').innerHTML = renderAuthenticatedLayout(u.fullName, 'matches', `
+          <div class="profile-header-card animate-fade-in-up">
+            <div class="profile-cover"></div>
+            <div class="profile-header-content">
+              <div class="profile-avatar-wrapper">
+                <div class="profile-avatar-large">
+                  ${u.profileImage ? `<img src="${u.profileImage}" alt="${u.fullName}">` : getInitials(u.fullName)}
+                </div>
+              </div>
+              <div class="profile-info">
+                <div class="profile-name-row">
+                  <h1>${u.fullName}</h1>
+                  ${u.isVerified ? '<span class="verified-badge">✓ Verified Student</span>' : ''}
+                </div>
+                <div class="profile-meta">
+                  ${u.department ? `<span>🎓 ${u.department}</span>` : ''}
+                  ${u.year ? `<span>📅 ${u.year}</span>` : ''}
+                  ${u.college ? `<span>🏫 ${u.college}</span>` : ''}
+                  ${u.location ? `<span>📍 ${u.location}</span>` : ''}
+                </div>
+                <div class="profile-stats-row">
+                  <div class="profile-stat-item">
+                    <div class="stat-number">${u.rating > 0 ? u.rating.toFixed(1) : 'New'}</div>
+                    <div class="stat-label">★ Rating (${u.reviewCount || 0})</div>
+                  </div>
+                  <div class="profile-stat-item">
+                    <div class="stat-number">${u.completedSessions || 0}</div>
+                    <div class="stat-label">Sessions</div>
+                  </div>
+                  <div class="profile-stat-item">
+                    <div class="stat-number">${u.completedExchanges || 0}</div>
+                    <div class="stat-label">Exchanges</div>
+                  </div>
+                  <div class="profile-stat-item">
+                    <div class="stat-number">${u.totalHoursExchanged || 0}h</div>
+                    <div class="stat-label">Time Exchanged</div>
+                  </div>
+                </div>
+              </div>
+              <div class="profile-actions">
+                <button class="btn btn-primary" onclick="openExchangeModal()">🤝 Request Exchange</button>
+                <button class="btn btn-secondary" onclick="openReviewModal()">⭐ Review</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="profile-body">
+            <div>
+              ${u.bio ? `
+                <div class="profile-section">
+                  <h3>About ${u.fullName}</h3>
+                  <div class="profile-about"><p>${u.bio}</p></div>
+                </div>
+              ` : ''}
+
+              <div class="profile-section">
+                <h3>Skills ${u.fullName} Teaches</h3>
+                <div class="skill-tags">
+                  ${data.teachSkills && data.teachSkills.length > 0 ? data.teachSkills.map(s => `
+                    <span class="skill-tag">
+                      ${SkillIcons.getIcon(s.skillName, 18)} ${s.skillName}
+                      <span style="opacity:0.7; font-size:11px;">• ${s.level}</span>
+                    </span>
+                  `).join('') : '<p class="text-muted">No teaching skills listed yet.</p>'}
+                </div>
+              </div>
+
+              <div class="profile-section">
+                <h3>Skills ${u.fullName} Wants to Learn</h3>
+                <div class="skill-tags">
+                  ${data.learnSkills && data.learnSkills.length > 0 ? data.learnSkills.map(s => `
+                    <span class="skill-tag learn">
+                      ${SkillIcons.getIcon(s.skillName, 18)} ${s.skillName}
+                      <span style="opacity:0.7; font-size:11px;">• ${s.level}</span>
+                    </span>
+                  `).join('') : '<p class="text-muted">No learning goals listed yet.</p>'}
+                </div>
+              </div>
+
+              <div class="profile-section">
+                <div class="flex-between" style="margin-bottom:16px;">
+                  <h3 style="margin-bottom:0; border:none; padding:0;">Reviews & Testimonials</h3>
+                  <button class="btn btn-sm btn-outline" onclick="openReviewModal()">+ Write a Review</button>
+                </div>
+                <div id="reviewsList">
+                  ${data.reviews && data.reviews.length > 0 ? data.reviews.map(r => `
+                    <div style="display:flex; gap:16px; padding:16px 0; border-bottom:1px solid var(--border-light);">
+                      ${renderAvatar(r.reviewer, 'md')}
+                      <div style="flex:1;">
+                        <div class="flex-between">
+                          <strong style="font-size:14px;">${r.reviewer?.fullName || 'Student'}</strong>
+                          <span style="font-size:12px; color:var(--text-muted);">${timeAgo(r.createdAt)}</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px; margin:4px 0;">
+                          ${renderStarRating(r.rating)}
+                          ${r.skillName ? `<span class="chip chip-primary" style="font-size:10px;">${r.skillName}</span>` : ''}
+                        </div>
+                        <p style="font-size:13px; color:var(--text-secondary); margin-top:6px;">${r.comment || ''}</p>
+                      </div>
+                    </div>
+                  `).join('') : '<p class="text-muted" style="text-align:center; padding:24px;">No reviews yet. Be the first to review after a session!</p>'}
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div class="profile-section">
+                <h3>Availability & Status</h3>
+                <div style="display:flex; flex-direction:column; gap:12px;">
+                  <div class="flex-between">
+                    <span class="text-muted" style="font-size:13px;">Status</span>
+                    <span class="badge ${u.isAvailable ? 'badge-active' : 'badge-cancelled'}">${u.isAvailable ? 'Available for Exchange' : 'Busy'}</span>
+                  </div>
+                  <div class="flex-between">
+                    <span class="text-muted" style="font-size:13px;">Preferred Times</span>
+                    <strong style="font-size:13px;">${u.availability || 'Flexible'}</strong>
+                  </div>
+                  <div class="flex-between">
+                    <span class="text-muted" style="font-size:13px;">Member Since</span>
+                    <span style="font-size:13px;">${formatDate(u.createdAt)}</span>
+                  </div>
+                </div>
+              </div>
+
+              ${u.interests && u.interests.length > 0 ? `
+                <div class="profile-section">
+                  <h3>Areas of Interest</h3>
+                  <div class="skill-tags">
+                    ${u.interests.map(i => `<span class="chip">${i}</span>`).join('')}
+                  </div>
+                </div>
+              ` : ''}
+
+              <div class="profile-section">
+                <h3>Quick Connect</h3>
+                <p style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;">
+                  Send a direct request to exchange skills or message directly.
+                </p>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                  <button class="btn btn-primary" style="width:100%;" onclick="openExchangeModal()">🤝 Start Skill Exchange</button>
+                  <a href="/pages/messages.html" class="btn btn-secondary" style="width:100%;">💬 Send Message</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        `);
+      } catch (error) {
+        Toast.error('Failed to load profile');
+      }
+    }
+
+    async function openExchangeModal() {
+      if (!targetUserData) return;
+      document.getElementById('partnerNameModal').textContent = targetUserData.user.fullName;
+      
+      const wantSelect = document.getElementById('wantSkillSelect');
+      wantSelect.innerHTML = '<option value="">Select skill...</option>' + 
+        (targetUserData.teachSkills || []).map(s => `<option value="${s.skillId?._id || s._id}">${s.skillName} (${s.level})</option>`).join('');
+
+      try {
+        const mySkillsData = await api.get('/user-skills?type=teach');
+        myTeachingSkills = mySkillsData.skills || [];
+        const teachSelect = document.getElementById('teachSkillSelect');
+        teachSelect.innerHTML = '<option value="">Select your teaching skill...</option>' +
+          myTeachingSkills.map(s => `<option value="${s.skillId?._id || s._id}">${s.skillName} (${s.level})</option>`).join('');
+      } catch (e) {}
+
+      document.getElementById('exchangeModal').classList.add('active');
+    }
+
+    function closeExchangeModal() {
+      document.getElementById('exchangeModal').classList.remove('active');
+    }
+
+    async function submitExchangeRequest() {
+      const teachSkillId = document.getElementById('teachSkillSelect').value;
+      const learnSkillId = document.getElementById('wantSkillSelect').value;
+      const message = document.getElementById('requestMessage').value.trim();
+      const proposedDuration = document.getElementById('proposedDuration').value;
+
+      if (!learnSkillId || !teachSkillId) {
+        Toast.warning('Please select both skills for the exchange');
+        return;
+      }
+
+      const btn = document.getElementById('sendRequestBtn');
+      btn.disabled = true;
+      btn.textContent = 'Sending Request...';
+
+      try {
+        await api.post('/exchange-requests', {
+          toUser: targetUserId,
+          teachSkillId,
+          learnSkillId,
+          message,
+          proposedDuration
+        });
+        Toast.success('Exchange request sent successfully!');
+        closeExchangeModal();
+      } catch (e) {
+        Toast.error(e.message || 'Failed to send request');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Send Exchange Request';
+      }
+    }
+
+    function openReviewModal() {
+      setReviewRating(5);
+      document.getElementById('reviewModal').classList.add('active');
+    }
+
+    function closeReviewModal() {
+      document.getElementById('reviewModal').classList.remove('active');
+    }
+
+    function setReviewRating(rating) {
+      selectedRating = rating;
+      const stars = document.querySelectorAll('#reviewRatingInput .star');
+      stars.forEach((s, idx) => {
+        if (idx < rating) {
+          s.classList.add('filled');
+        } else {
+          s.classList.remove('filled');
+        }
+      });
+    }
+
+    async function submitReview() {
+      const comment = document.getElementById('reviewComment').value.trim();
+      const skillName = document.getElementById('reviewSkillName').value.trim();
+
+      if (!comment) {
+        Toast.warning('Please write a brief feedback comment');
+        return;
+      }
+
+      try {
+        await api.post('/reviews', {
+          reviewee: targetUserId,
+          rating: selectedRating,
+          comment,
+          skillName
+        });
+        Toast.success('Review submitted successfully!');
+        closeReviewModal();
+        loadPublicProfile();
+      } catch (e) {
+        Toast.error(e.message || 'Failed to submit review');
+      }
+    }
+
+    loadPublicProfile();
+  </script>
+</body>
+</html>

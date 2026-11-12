@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <meta
+    name="description"
+    content="Sign in to your SkillSync account."
+  >
+
+  <meta
+    name="referrer"
+    content="strict-origin-when-cross-origin"
+  >
+
+  <title>Login - SkillSync</title>
+
+  <link
+    rel="stylesheet"
+    href="/css/global.css"
+  >
+
+  <link
+    rel="stylesheet"
+    href="/css/components.css"
+  >
+
+  <link
+    rel="stylesheet"
+    href="/css/auth.css"
+  >
+
+  <!-- Official Google Identity Services -->
+  <script
+    src="https://accounts.google.com/gsi/client"
+    async
+    defer>
+  </script>
+</head>
+
+<body>
+
+  <div class="auth-page">
+
+    <!-- Left Branding Section -->
+    <div class="auth-branding">
+
+      <div class="auth-branding-content">
+
+        <div class="brand-logo">
+
+          <div class="brand-logo-icon">
+            S
+          </div>
+
+          <div class="brand-logo-text">
+            SkillSync
+          </div>
+
+        </div>
+
+        <h2>
+          Welcome Back to
+          <br>
+          SkillSync
+        </h2>
+
+        <p class="brand-desc">
+          Continue your learning journey.
+          Your skill partners are waiting for you.
+        </p>
+
+        <div class="auth-features">
+
+          <div class="auth-feature">
+
+            <div class="feature-icon">
+              &#129309;
+            </div>
+
+            <div class="feature-text">
+              <h4>Active Exchanges</h4>
+              <p>Students helping students grow</p>
+            </div>
+
+          </div>
+
+          <div class="auth-feature">
+
+            <div class="feature-icon">
+              &#11088;
+            </div>
+
+            <div class="feature-text">
+              <h4>Student Ratings</h4>
+              <p>Build trust through learning experiences</p>
+            </div>
+
+          </div>
+
+          <div class="auth-feature">
+
+            <div class="feature-icon">
+              &#127942;
+            </div>
+
+            <div class="feature-text">
+              <h4>Multiple Skills</h4>
+              <p>From coding to communication</p>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <!-- Right Login Form -->
+    <div class="auth-form-side">
+
+      <div class="auth-form-container">
+
+        <div class="auth-form-header">
+
+          <h1>
+            Sign in to your account
+          </h1>
+
+          <p>
+            Don't have an account?
+
+            <a href="/pages/register.html">
+              Create one free
+            </a>
+          </p>
+
+        </div>
+
+
+        <!-- Official Google Button -->
+        <div
+          id="googleSignInButton"
+          style="
+            display: flex;
+            justify-content: center;
+            width: 100%;
+            min-height: 44px;
+          "
+        ></div>
+
+        <div
+          class="form-error mt-md"
+          id="googleLoginError"
+          style="text-align: center;"
+        ></div>
+
+
+        <div style="margin-bottom: 18px; text-align: center;">
+          <button
+            type="button"
+            onclick="fillDemoAndLogin('alex.rivera@stanford.edu')"
+            style="width: 100%; background: #4F46E5; color: white; padding: 12px 16px; border-radius: 10px; font-weight: 700; font-size: 14.5px; cursor: pointer; border: none; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25); display: flex; align-items: center; justify-content: center; gap: 8px;"
+          >
+            <span>&#128640; One-Click Demo Login (Alex Rivera • Stanford)</span>
+          </button>
+        </div>
+
+        <div class="auth-divider">
+          <span>
+            or sign in with email
+          </span>
+        </div>
+
+
+        <form
+          class="auth-form"
+          id="loginForm"
+          onsubmit="handleLogin(event)"
+        >
+
+          <div class="form-group">
+
+            <label
+              class="form-label"
+              for="email"
+            >
+              Email Address
+            </label>
+
+            <input
+              type="email"
+              class="form-input"
+              id="email"
+              placeholder="your@email.com"
+              autocomplete="email"
+              required
+            >
+
+          </div>
+
+
+          <div class="form-group">
+
+            <label
+              class="form-label"
+              for="password"
+            >
+              SkillSync Password
+            </label>
+
+            <div class="password-toggle">
+
+              <input
+                type="password"
+                class="form-input"
+                id="password"
+                placeholder="Enter your SkillSync password"
+                autocomplete="current-password"
+                required
+              >
+
+              <button
+                type="button"
+                class="toggle-btn"
+                onclick="togglePassword()"
+                aria-label="Show or hide password"
+              >
+                &#128065;
+              </button>
+
+            </div>
+
+          </div>
+
+
+          <div class="form-options">
+
+            <label class="form-checkbox">
+
+              <input
+                type="checkbox"
+                id="remember"
+              >
+
+              <span>
+                Remember me
+              </span>
+
+            </label>
+
+            <a href="/pages/forgot-password.html">
+              Forgot password?
+            </a>
+
+          </div>
+
+
+          <button
+            type="submit"
+            class="btn btn-primary btn-submit"
+            id="submitBtn"
+          >
+            Sign In
+          </button>
+
+
+          <div
+            class="form-error mt-md"
+            id="loginError"
+            style="text-align: center;"
+          ></div>
+
+        </form>
+
+
+        <div class="auth-footer-text">
+
+          <a href="/">
+            &larr; Back to SkillSync
+          </a>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <script src="/js/api.js"></script>
+
+  <script>
+    /*
+      Google Client ID is public.
+
+      Never put the Google Client Secret
+      inside frontend code.
+    */
+    const GOOGLE_CLIENT_ID =
+      '81008972539-8uvdv62bilplq51gsre50baedbf4oght.apps.googleusercontent.com';
+
+
+    /*
+      Redirect already authenticated users.
+
+      Google users who have not created their
+      SkillSync password are sent to the
+      password setup page.
+    */
+    if (api.isAuthenticated()) {
+      const storedUser =
+        api.getUser();
+
+      window.location.href =
+        storedUser &&
+        storedUser.passwordSetupRequired
+          ? '/pages/set-password.html'
+          : '/pages/dashboard.html';
+    }
+
+
+    /*
+      Render official Google Sign-In button.
+    */
+    window.addEventListener(
+      'load',
+      () => {
+        const errorElement =
+          document.getElementById(
+            'googleLoginError'
+          );
+
+        if (!GOOGLE_CLIENT_ID) {
+          errorElement.textContent =
+            'Google Client ID has not been configured.';
+
+          return;
+        }
+
+        if (
+          !window.google ||
+          !google.accounts ||
+          !google.accounts.id
+        ) {
+          errorElement.textContent =
+            'Google Sign-In could not be loaded. Check your internet connection.';
+
+          return;
+        }
+
+        google.accounts.id.initialize({
+          client_id:
+            GOOGLE_CLIENT_ID,
+
+          callback:
+            handleGoogleCredential,
+
+          ux_mode:
+            'popup',
+
+          auto_select:
+            false,
+
+          use_fedcm_for_button:
+            true
+        });
+
+        const container =
+          document.getElementById(
+            'googleSignInButton'
+          );
+
+        const buttonWidth =
+          Math.min(
+            container.clientWidth || 360,
+            400
+          );
+
+        google.accounts.id.renderButton(
+          container,
+          {
+            type:
+              'standard',
+
+            theme:
+              'outline',
+
+            size:
+              'large',
+
+            text:
+              'continue_with',
+
+            shape:
+              'rectangular',
+
+            logo_alignment:
+              'left',
+
+            width:
+              buttonWidth
+          }
+        );
+      }
+    );
+
+
+    function fillDemoAndLogin(email = 'alex.rivera@stanford.edu') {
+      const emailInput = document.getElementById('email');
+      const passInput = document.getElementById('password');
+      if (emailInput && passInput) {
+        emailInput.value = email;
+        passInput.value = 'demo123';
+      }
+      const form = document.getElementById('loginForm');
+      if (form) {
+        if (typeof form.requestSubmit === 'function') {
+          form.requestSubmit();
+        } else {
+          form.dispatchEvent(new Event('submit', { cancelable: true }));
+        }
+      }
+    }
+
+    function togglePassword() {
+      const input =
+        document.getElementById(
+          'password'
+        );
+
+      input.type =
+        input.type === 'password'
+          ? 'text'
+          : 'password';
+    }
+
+
+    /*
+      Normal email + SkillSync password login.
+    */
+    async function handleLogin(event) {
+      event.preventDefault();
+
+      const button =
+        document.getElementById(
+          'submitBtn'
+        );
+
+      const errorElement =
+        document.getElementById(
+          'loginError'
+        );
+
+      button.disabled = true;
+
+      button.innerHTML =
+        '<span class="btn-spinner"></span> Signing In...';
+
+      errorElement.textContent = '';
+
+      try {
+        const data =
+          await api.post(
+            '/auth/login',
+            {
+              email:
+                document
+                  .getElementById('email')
+                  .value
+                  .trim(),
+
+              password:
+                document
+                  .getElementById('password')
+                  .value
+            }
+          );
+
+        api.setToken(
+          data.token
+        );
+
+        api.setUser({
+          ...data.user,
+          passwordSetupRequired:
+            false
+        });
+
+        Toast.success(
+          'Welcome back, ' +
+          data.user.fullName +
+          '!'
+        );
+
+        setTimeout(
+          () => {
+            window.location.href =
+              '/pages/dashboard.html';
+          },
+          500
+        );
+
+      } catch (error) {
+        const message =
+          error.message ||
+          'Invalid email or password';
+
+        errorElement.textContent =
+          message;
+
+        Toast.error(message);
+
+        button.disabled = false;
+
+        button.textContent =
+          'Sign In';
+      }
+    }
+
+
+    /*
+      Receives the real Google-signed ID token
+      after the user selects an account.
+    */
+    async function handleGoogleCredential(
+      response
+    ) {
+      const errorElement =
+        document.getElementById(
+          'googleLoginError'
+        );
+
+      errorElement.textContent = '';
+
+      if (
+        !response ||
+        !response.credential
+      ) {
+        const message =
+          'Google did not return a valid credential.';
+
+        errorElement.textContent =
+          message;
+
+        Toast.error(message);
+
+        return;
+      }
+
+      try {
+        Toast.info(
+          'Verifying your Google account...'
+        );
+
+        /*
+          Only send Google's signed token.
+
+          Do not send email, name, password
+          or Google ID from the browser.
+        */
+        const data =
+          await api.post(
+            '/auth/google',
+            {
+              credential:
+                response.credential
+            }
+          );
+
+        api.setToken(
+          data.token
+        );
+
+        api.setUser({
+          ...data.user,
+
+          passwordSetupRequired:
+            Boolean(
+              data.needsPasswordSetup
+            )
+        });
+
+
+        const nextPage =
+          data.needsPasswordSetup
+            ? '/pages/set-password.html'
+            : '/pages/dashboard.html';
+
+
+        Toast.success(
+          data.needsPasswordSetup
+            ? 'Google verified! Create your SkillSync password.'
+            : 'Google sign-in successful!'
+        );
+
+
+        setTimeout(
+          () => {
+            window.location.href =
+              nextPage;
+          },
+          500
+        );
+
+      } catch (error) {
+        const message =
+          error.message ||
+          'Google authentication failed';
+
+        errorElement.textContent =
+          message;
+
+        Toast.error(message);
+      }
+    }
+  </script>
+
+</body>
+
+</html>

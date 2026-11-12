@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Profile – SkillSync</title>
+  <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/profile.css">
+</head>
+
+<body>
+  <div class="app-layout" id="app"></div>
+
+  <!-- Edit Profile Modal -->
+  <div class="modal-overlay" id="editProfileModal" onclick="handleModalBackdropClick(event)">
+    <div class="profile-edit-modal">
+      <div class="modal-header">
+        <div class="modal-header-titles">
+          <h3>Edit Student Profile</h3>
+          <p>Update your personal information, skills, and academic profile</p>
+        </div>
+        <button type="button" class="modal-close-btn" onclick="closeEditModal()" title="Close">✕</button>
+      </div>
+
+      <div class="modal-scrollable-body">
+        <form id="profileEditForm" onsubmit="handleSaveProfile(event)">
+          
+          <!-- Avatar Upload -->
+          <div class="avatar-upload-row">
+            <div class="avatar-preview-box" id="modalAvatarPreview"></div>
+            <div class="avatar-upload-controls">
+              <input type="file" id="modalProfileImage" accept="image/jpeg,image/png,image/gif,image/webp" style="display:none;" onchange="handleModalImageChange(this)">
+              <div style="display:flex; gap:8px;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('modalProfileImage').click()">
+                  📷 Change Photo
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" id="removePhotoBtn" onclick="handleRemovePhoto()" style="display:none; color:var(--danger);">
+                  Remove
+                </button>
+              </div>
+              <span class="avatar-upload-hint">Recommended: Square JPG, PNG or WebP. Max 5MB.</span>
+            </div>
+          </div>
+
+          <!-- Basic Info -->
+          <div class="form-section-divider">👤 Identity & Contact</div>
+          <div class="edit-form-grid">
+            <div class="form-group">
+              <label class="form-label" for="editFullName">Full Name *</label>
+              <input type="text" class="form-input" id="editFullName" required placeholder="e.g. Priyadharshan">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="editUsername">Unique Username *</label>
+              <div class="input-with-prefix">
+                <span class="input-prefix">@</span>
+                <input type="text" class="form-input" id="editUsername" required placeholder="username" pattern="^[a-zA-Z0-9_.-]{3,30}$" title="3-30 letters, numbers, _, ., -">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="editEmail">Email Address (Account)</label>
+              <input type="email" class="form-input" id="editEmail" disabled title="Email is tied to your login account">
+              <span style="font-size:11px; color:var(--text-muted); margin-top:3px; display:block;">🔒 Private to other students by default</span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="editPhone">Phone Number (Optional)</label>
+              <input type="tel" class="form-input" id="editPhone" placeholder="e.g. +91 98765 43210">
+              <span style="font-size:11px; color:var(--text-muted); margin-top:3px; display:block;">🔒 Kept private from other students by default</span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="editLocation">City / Location</label>
+              <input type="text" class="form-input" id="editLocation" placeholder="e.g. Chennai, Tamil Nadu">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="editAvailability">Availability</label>
+              <select class="form-select" id="editAvailability">
+                <option value="">Select availability</option>
+                <option value="Morning">Morning</option>
+                <option value="Afternoon">Afternoon</option>
+                <option value="Evening">Evening</option>
+                <option value="Flexible">Flexible</option>
+                <option value="Weekends Only">Weekends Only</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Academic Info -->
+          <div class="form-section-divider">🎓 Academic Background</div>
+          <div class="edit-form-grid">
+            <div class="form-group edit-form-full">
+              <label class="form-label" for="editCollege">College / University Name</label>
+              <input type="text" class="form-input" id="editCollege" placeholder="e.g. Anna University, Chennai">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="editDepartment">Department / Field of Study</label>
+              <input type="text" class="form-input" id="editDepartment" placeholder="e.g. Computer Science and Engineering">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="editYear">Current Year of Study</label>
+              <select class="form-select" id="editYear">
+                <option value="">Select current year</option>
+                <option value="1st Year">1st Year</option>
+                <option value="2nd Year">2nd Year</option>
+                <option value="3rd Year">3rd Year</option>
+                <option value="4th Year">4th Year</option>
+                <option value="Graduate">Graduate</option>
+                <option value="Post Graduate">Post Graduate</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Bio & Goals -->
+          <div class="form-section-divider">📝 About & Goals</div>
+          <div class="form-group">
+            <label class="form-label" for="editBio">Short Bio</label>
+            <textarea class="form-textarea" id="editBio" rows="3" maxlength="500" placeholder="Briefly describe your interests, studies, and what you hope to achieve..." oninput="updateBioCounter(this)"></textarea>
+            <div class="char-counter" id="bioCounter">0 / 500</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="editLearningGoals">Learning Goals (Optional)</label>
+            <textarea class="form-textarea" id="editLearningGoals" rows="2" maxlength="500" placeholder="e.g. Looking to master React component architecture, Docker containerization, and Figma design systems this semester."></textarea>
+          </div>
+
+          <!-- Manage Skills -->
+          <div class="form-section-divider">⚡ Skills Management</div>
+          
+          <!-- Teach Skills Box -->
+          <div class="form-group">
+            <label class="form-label" style="font-weight:600;">Skills I Can Teach</label>
+            <div class="modal-skills-box">
+              <div class="modal-skills-chips" id="modalTeachSkillsList">
+                <!-- Staged teach skills chips rendered here -->
+              </div>
+              <div class="modal-skill-add-row">
+                <div class="modal-skill-select-wrapper">
+                  <input type="text" class="form-input" id="searchTeachInput" placeholder="Search skill to teach..." autocomplete="off" oninput="filterSkillSuggestions('teach', this.value)" onfocus="showSkillDropdown('teach')">
+                  <div class="modal-skill-dropdown" id="dropdownTeachMenu"></div>
+                </div>
+                <select class="form-select" id="teachLevelSelect" style="width:140px;">
+                  <option value="Beginner">Beginner</option>
+                  <option value="Intermediate" selected>Intermediate</option>
+                  <option value="Advanced">Advanced</option>
+                  <option value="Expert">Expert</option>
+                </select>
+                <button type="button" class="btn btn-secondary" onclick="addSelectedSkill('teach')">Add</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Learn Skills Box -->
+          <div class="form-group">
+            <label class="form-label" style="font-weight:600;">Skills I Want to Learn</label>
+            <div class="modal-skills-box">
+              <div class="modal-skills-chips" id="modalLearnSkillsList">
+                <!-- Staged learn skills chips rendered here -->
+              </div>
+              <div class="modal-skill-add-row">
+                <div class="modal-skill-select-wrapper">
+                  <input type="text" class="form-input" id="searchLearnInput" placeholder="Search skill to learn..." autocomplete="off" oninput="filterSkillSuggestions('learn', this.value)" onfocus="showSkillDropdown('learn')">
+                  <div class="modal-skill-dropdown" id="dropdownLearnMenu"></div>
+                </div>
+                <select class="form-select" id="learnLevelSelect" style="width:140px;">
+                  <option value="Beginner" selected>Beginner</option>
+                  <option value="Intermediate">Intermediate</option>
+                  <option value="Advanced">Advanced</option>
+                  <option value="Expert">Expert</option>
+                </select>
+                <button type="button" class="btn btn-secondary" onclick="addSelectedSkill('learn')">Add</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Social Links -->
+          <div class="form-section-divider">🌐 Social & Portfolio Links</div>
+          <div class="edit-form-grid">
+            <div class="form-group">
+              <label class="form-label" for="editLinkedin">LinkedIn Profile URL</label>
+              <input type="url" class="form-input" id="editLinkedin" placeholder="https://linkedin.com/in/username">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="editGithub">GitHub Profile URL</label>
+              <input type="url" class="form-input" id="editGithub" placeholder="https://github.com/username">
+            </div>
+
+            <div class="form-group edit-form-full">
+              <label class="form-label" for="editPortfolio">Portfolio / Personal Website URL</label>
+              <input type="url" class="form-input" id="editPortfolio" placeholder="https://myportfolio.com">
+            </div>
+          </div>
+
+        </form>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+        <button type="button" class="btn btn-primary" id="saveProfileBtn" onclick="document.getElementById('profileEditForm').requestSubmit()">
+          Save Changes
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/skill-icons.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/components.js"></script>
+
+  <script>
+    if (!initAuthPage()) throw new Error('Not authenticated');
+
+    // Global state
+    let currentUserData = null;
+    let currentTeachSkills = [];
+    let currentLearnSkills = [];
+    let catalogueSkills = [];
+    let stagedTeachSkills = [];
+    let stagedLearnSkills = [];
+    let pendingImageFile = null;
+    let selectedCatalogueSkillTeach = null;
+    let selectedCatalogueSkillLearn = null;
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/[&<>"']/g, m => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      }[m]));
+    }
+
+    // Load full profile
+    async function loadProfile() {
+      try {
+        const data = await api.get('/users/me');
+        currentUserData = data.user;
+        currentTeachSkills = data.teachSkills || [];
+        currentLearnSkills = data.learnSkills || [];
+        
+        // Synchronize api.user
+        api.setUser(currentUserData);
+        
+        renderProfilePage(data);
+      } catch (err) {
+        console.error('Failed to load profile:', err);
+        Toast.error('Could not load profile details. Please refresh.');
+      }
+    }
+
+    // Render main profile view
+    function renderProfilePage(data) {
+      const u = data.user;
+      const teach = data.teachSkills || [];
+      const learn = data.learnSkills || [];
+      const reviews = data.reviews || [];
+
+      const initials = getInitials(u.fullName);
+      const avatarHtml = u.profileImage 
+        ? `<img src="${u.profileImage}" alt="${escapeHtml(u.fullName)}">` 
+        : initials;
+
+      const usernameDisplay = u.username 
+        ? `@${escapeHtml(u.username)}` 
+        : `@${escapeHtml((u.email || '').split('@')[0])}`;
+
+      // Format social links
+      const linkedinUrl = u.linkedin || (u.socialLinks && u.socialLinks.linkedin);
+      const githubUrl = u.github || (u.socialLinks && u.socialLinks.github);
+      const portfolioUrl = u.portfolio || (u.socialLinks && u.socialLinks.portfolio);
+      const hasSocial = !!(linkedinUrl || githubUrl || portfolioUrl);
+
+      // Checklist for profile completion
+      const checklistItems = [
+        { label: 'Full Name', done: !!(u.fullName && u.fullName.trim()) },
+        { label: 'Username', done: !!(u.username && u.username.trim()) },
+        { label: 'University & Department', done: !!(u.college && u.department) },
+        { label: 'Short Bio', done: !!(u.bio && u.bio.trim()) },
+        { label: 'Profile Photo', done: !!u.profileImage },
+        { label: 'Teaching & Learning Skills', done: (teach.length > 0 && learn.length > 0) },
+        { label: 'Social & Portfolio Links', done: hasSocial }
+      ];
+
+      const html = `
+        <!-- Top Profile Card -->
+        <div class="profile-header-card animate-fade-in-up">
+          <div class="profile-cover"></div>
+          <div class="profile-header-content">
+            <div class="profile-avatar-wrapper">
+              <div class="profile-avatar-large" id="mainProfileAvatar">
+                ${avatarHtml}
+              </div>
+              <button type="button" class="avatar-edit-badge" title="Change Photo" onclick="openEditModal()">
+                📷
+              </button>
+            </div>
+            
+            <div class="profile-info">
+              <div class="profile-name-row">
+                <h1>${escapeHtml(u.fullName)}</h1>
+                <span class="username-pill">${usernameDisplay}</span>
+                ${u.isVerified ? '<span class="verified-badge">✓ Verified Student</span>' : ''}
+              </div>
+
+              <div class="profile-academic-line">
+                ${(u.department || u.year) ? `
+                  <span class="academic-chip">
+                    🎓 ${escapeHtml(u.department || 'Student')}${u.year ? ` • ${escapeHtml(u.year)}` : ''}
+                  </span>
+                ` : ''}
+                ${u.college ? `
+                  ${(u.department || u.year) ? '<span class="academic-chip-dot"></span>' : ''}
+                  <span class="academic-chip">
+                    🏫 ${escapeHtml(u.college)}
+                  </span>
+                ` : ''}
+                ${u.location ? `
+                  <span class="academic-chip-dot"></span>
+                  <span class="academic-chip">
+                    📍 ${escapeHtml(u.location)}
+                  </span>
+                ` : ''}
+              </div>
+
+              ${u.bio ? `
+                <p class="profile-short-bio">${escapeHtml(u.bio)}</p>
+              ` : `
+                <p class="profile-short-bio placeholder">No bio added yet. Click Edit Profile to introduce yourself to fellow students.</p>
+              `}
+
+              <div class="profile-stats-row">
+                <div class="profile-stat-item">
+                  <div class="stat-number">${u.rating > 0 ? u.rating.toFixed(1) + ' ★' : '—'}</div>
+                  <div class="stat-label">Rating</div>
+                </div>
+                <div class="profile-stat-item">
+                  <div class="stat-number">${u.completedSessions || 0}</div>
+                  <div class="stat-label">Sessions</div>
+                </div>
+                <div class="profile-stat-item">
+                  <div class="stat-number">${u.completedExchanges || 0}</div>
+                  <div class="stat-label">Exchanges</div>
+                </div>
+                <div class="profile-stat-item">
+                  <div class="stat-number">${u.profileCompletion || 0}%</div>
+                  <div class="stat-label">Profile</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="profile-actions">
+              <button type="button" class="btn btn-primary" onclick="openEditModal()">
+                ✏️ Edit Profile
+              </button>
+              <a href="/pages/portfolio.html" class="btn btn-secondary">
+                💼 Portfolio
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Main Body Grid: 2 Columns on Desktop -->
+        <div class="profile-body-grid">
+          
+          <!-- Left / Main Column -->
+          <div class="profile-main-col">
+
+            <!-- 1. Education Section -->
+            <div class="profile-card">
+              <div class="profile-card-header">
+                <h3 class="profile-card-title">
+                  <span>🎓</span> Education & Campus Details
+                </h3>
+              </div>
+              <div class="education-grid">
+                <div class="education-item">
+                  <span class="education-label">🏛️ University / College</span>
+                  <span class="education-value ${!u.college ? 'empty' : ''}">
+                    ${u.college ? escapeHtml(u.college) : 'Not specified'}
+                  </span>
+                </div>
+                <div class="education-item">
+                  <span class="education-label">📚 Department</span>
+                  <span class="education-value ${!u.department ? 'empty' : ''}">
+                    ${u.department ? escapeHtml(u.department) : 'Not specified'}
+                  </span>
+                </div>
+                <div class="education-item">
+                  <span class="education-label">📅 Year of Study</span>
+                  <span class="education-value ${!u.year ? 'empty' : ''}">
+                    ${u.year ? escapeHtml(u.year) : 'Not specified'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. Skills I Can Teach -->
+            <div class="profile-card">
+              <div class="profile-card-header">
+                <h3 class="profile-card-title">
+                  <span>👨‍🏫</span> Skills I Can Teach
+                </h3>
+                <span class="profile-card-badge">${teach.length} Available</span>
+              </div>
+              ${teach.length > 0 ? `
+                <div class="skills-container">
+                  ${teach.map(s => `
+                    <div class="skill-pill skill-pill-teach">
+                      <span class="skill-pill-icon">
+                        ${SkillIcons.getIcon(s.skillName, 20, '', s.skillId?.iconType, s.skillId?.iconKey)}
+                      </span>
+                      <span class="skill-pill-name">${escapeHtml(s.skillName)}</span>
+                      <span class="skill-pill-level level-${(s.level || 'beginner').toLowerCase()}">${escapeHtml(s.level || 'Beginner')}</span>
+                    </div>
+                  `).join('')}
+                </div>
+              ` : `
+                <div class="skills-empty">
+                  <p>You haven't listed any teaching skills yet.</p>
+                  <button type="button" class="btn btn-sm btn-primary" onclick="openEditModal()">+ Add Teaching Skills</button>
+                </div>
+              `}
+            </div>
+
+            <!-- 3. Skills I Want to Learn -->
+            <div class="profile-card">
+              <div class="profile-card-header">
+                <h3 class="profile-card-title">
+                  <span>🎯</span> Skills I Want to Learn
+                </h3>
+                <span class="profile-card-badge purple">${learn.length} Goals</span>
+              </div>
+              ${learn.length > 0 ? `
+                <div class="skills-container">
+                  ${learn.map(s => `
+                    <div class="skill-pill skill-pill-learn">
+                      <span class="skill-pill-icon">
+                        ${SkillIcons.getIcon(s.skillName, 20, '', s.skillId?.iconType, s.skillId?.iconKey)}
+                      </span>
+                      <span class="skill-pill-name">${escapeHtml(s.skillName)}</span>
+                      <span class="skill-pill-level level-${(s.level || 'beginner').toLowerCase()}">${escapeHtml(s.level || 'Beginner')}</span>
+                    </div>
+                  `).join('')}
+                </div>
+              ` : `
+                <div class="skills-empty">
+                  <p>You haven't added any learning goals yet.</p>
+                  <button type="button" class="btn btn-sm btn-secondary" onclick="openEditModal()">+ Add Learning Goals</button>
+                </div>
+              `}
+            </div>
+
+            <!-- 4. Learning Goals Card -->
+            <div class="profile-card">
+              <div class="profile-card-header">
+                <h3 class="profile-card-title">
+                  <span>🚀</span> Learning Goals & Focus
+                </h3>
+              </div>
+              <div class="goals-content">
+                <div class="goals-text ${!u.learningGoals ? 'empty' : ''}">
+                  ${u.learningGoals ? escapeHtml(u.learningGoals) : 'No specific learning goals shared yet. Share what technologies, subjects, or projects you want to tackle this semester.'}
+                </div>
+              </div>
+            </div>
+
+            <!-- 5. Peer Reviews (if any) -->
+            ${reviews.length > 0 ? `
+              <div class="profile-card">
+                <div class="profile-card-header">
+                  <h3 class="profile-card-title">
+                    <span>⭐</span> Peer Reviews & Endorsements
+                  </h3>
+                  <span class="profile-card-badge">${reviews.length}</span>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:16px;">
+                  ${reviews.map(r => `
+                    <div style="display:flex; gap:14px; padding-bottom:14px; border-bottom:1px solid var(--border-light);">
+                      ${renderAvatar(r.reviewer, 'md')}
+                      <div style="flex:1;">
+                        <div style="display:flex; align-items:center; justify-content:space-between;">
+                          <strong style="font-size:14px;">${escapeHtml(r.reviewer?.fullName || 'Student')}</strong>
+                          <div>${renderStarRating(r.rating || 5)}</div>
+                        </div>
+                        <p style="font-size:13px; color:var(--text-secondary); margin-top:4px; line-height:1.5;">${escapeHtml(r.comment || '')}</p>
+                        <span style="font-size:11px; color:var(--text-muted);">${timeAgo(r.createdAt)}</span>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+
+          </div>
+
+          <!-- Right / Sidebar Column -->
+          <div class="profile-side-col">
+
+            <!-- Profile Completion Card -->
+            <div class="profile-card">
+              <div class="profile-card-header">
+                <h3 class="profile-card-title">
+                  <span>📊</span> Profile Completion
+                </h3>
+              </div>
+              <div class="completion-display">
+                <div class="completion-percentage">${u.profileCompletion || 0}%</div>
+                <div class="completion-subtitle">Students with complete profiles get 3x more exchange matches!</div>
+                <div class="completion-progress-track">
+                  <div class="completion-progress-fill" style="width:${Math.max(8, u.profileCompletion || 0)}%;"></div>
+                </div>
+              </div>
+              <div class="completion-checklist">
+                ${checklistItems.map(item => `
+                  <div class="completion-check-item ${item.done ? 'done' : 'pending'}">
+                    <span>${item.label}</span>
+                    <span class="check-icon">${item.done ? '✓ Completed' : '○ Missing'}</span>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+
+            <!-- Social Links Section -->
+            <div class="profile-card">
+              <div class="profile-card-header">
+                <h3 class="profile-card-title">
+                  <span>🌐</span> Social & Portfolio Links
+                </h3>
+              </div>
+              ${hasSocial ? `
+                <div class="social-links-list">
+                  ${linkedinUrl ? `
+                    <a href="${escapeHtml(linkedinUrl)}" target="_blank" rel="noopener noreferrer" class="social-link-btn">
+                      <div class="social-link-left">
+                        <span class="social-link-icon">
+                          <svg viewBox="0 0 24 24" width="18" height="18" fill="#0A66C2"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 10.9v8.37H9.2V10.9H6.46M7.83 6.45a1.62 1.62 0 1 0 0 3.24 1.62 1.62 0 0 0 0-3.24z"/></svg>
+                        </span>
+                        <span>LinkedIn Profile</span>
+                      </div>
+                      <span class="social-link-arrow">↗</span>
+                    </a>
+                  ` : ''}
+
+                  ${githubUrl ? `
+                    <a href="${escapeHtml(githubUrl)}" target="_blank" rel="noopener noreferrer" class="social-link-btn">
+                      <div class="social-link-left">
+                        <span class="social-link-icon">
+                          <svg viewBox="0 0 24 24" width="18" height="18" fill="#24292F"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+                        </span>
+                        <span>GitHub Profile</span>
+                      </div>
+                      <span class="social-link-arrow">↗</span>
+                    </a>
+                  ` : ''}
+
+                  ${portfolioUrl ? `
+                    <a href="${escapeHtml(portfolioUrl)}" target="_blank" rel="noopener noreferrer" class="social-link-btn">
+                      <div class="social-link-left">
+                        <span class="social-link-icon">
+                          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#5B5CF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+                        </span>
+                        <span>Portfolio Website</span>
+                      </div>
+                      <span class="social-link-arrow">↗</span>
+                    </a>
+                  ` : ''}
+                </div>
+              ` : `
+                <div class="skills-empty" style="padding:16px;">
+                  <p style="margin-bottom:8px; font-size:12px;">No social links connected yet.</p>
+                  <button type="button" class="btn btn-sm btn-secondary" onclick="openEditModal()">+ Add LinkedIn / GitHub</button>
+                </div>
+              `}
+            </div>
+
+            <!-- Student Account Details & Privacy -->
+            <div class="profile-card">
+              <div class="profile-card-header">
+                <h3 class="profile-card-title">
+                  <span>🔒</span> Student Details
+                </h3>
+              </div>
+              <div class="details-list">
+                <div class="details-row">
+                  <span class="details-label">
+                    ✉️ Email
+                    <span class="private-pill">Private</span>
+                  </span>
+                  <span class="details-value">${escapeHtml(u.email)}</span>
+                </div>
+
+                <div class="details-row">
+                  <span class="details-label">
+                    📱 Phone
+                    <span class="private-pill">Private</span>
+                  </span>
+                  <span class="details-value ${!u.phone ? 'text-muted' : ''}">
+                    ${u.phone ? escapeHtml(u.phone) : 'Not provided'}
+                  </span>
+                </div>
+
+                <div class="details-row">
+                  <span class="details-label">📍 Location</span>
+                  <span class="details-value ${!u.location ? 'text-muted' : ''}">
+                    ${u.location ? escapeHtml(u.location) : 'Not set'}
+                  </span>
+                </div>
+
+                <div class="details-row">
+                  <span class="details-label">⏰ Availability</span>
+                  <span class="details-value ${!u.availability ? 'text-muted' : ''}">
+                    ${u.availability ? escapeHtml(u.availability) : 'Not specified'}
+                  </span>
+                </div>
+
+                <div class="details-row">
+                  <span class="details-label">🗓️ Member Since</span>
+                  <span class="details-value">${formatDate(u.createdAt)}</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      `;
+
+      document.getElementById('app').innerHTML = renderAuthenticatedLayout('My Profile', 'profile', html);
+    }
+
+    // ========================================================
+    // MODAL EDIT PROFILE LOGIC
+    // ========================================================
+
+    async function loadCatalogueSkillsIfNeeded() {
+      if (catalogueSkills.length > 0) return;
+      try {
+        const res = await api.get('/skills');
+        catalogueSkills = res.skills || [];
+      } catch (e) {
+        console.warn('Catalogue load error:', e);
+      }
+    }
+
+    async function openEditModal() {
+      if (!currentUserData) return;
+      await loadCatalogueSkillsIfNeeded();
+
+      const u = currentUserData;
+      pendingImageFile = null;
+
+      // Populate Inputs
+      document.getElementById('editFullName').value = u.fullName || '';
+      document.getElementById('editUsername').value = (u.username || (u.email || '').split('@')[0] || '').replace(/^@/, '');
+      document.getElementById('editEmail').value = u.email || '';
+      document.getElementById('editPhone').value = u.phone || '';
+      document.getElementById('editCollege').value = u.college || '';
+      document.getElementById('editDepartment').value = u.department || '';
+      document.getElementById('editYear').value = u.year || '';
+      document.getElementById('editLocation').value = u.location || '';
+      document.getElementById('editAvailability').value = u.availability || '';
+      document.getElementById('editBio').value = u.bio || '';
+      document.getElementById('editLearningGoals').value = u.learningGoals || '';
+
+      const bioEl = document.getElementById('editBio');
+      updateBioCounter(bioEl);
+
+      const linkedinUrl = u.linkedin || (u.socialLinks && u.socialLinks.linkedin) || '';
+      const githubUrl = u.github || (u.socialLinks && u.socialLinks.github) || '';
+      const portfolioUrl = u.portfolio || (u.socialLinks && u.socialLinks.portfolio) || '';
+
+      document.getElementById('editLinkedin').value = linkedinUrl;
+      document.getElementById('editGithub').value = githubUrl;
+      document.getElementById('editPortfolio').value = portfolioUrl;
+
+      // Avatar Preview in Modal
+      renderModalAvatarPreview(u.profileImage, u.fullName);
+
+      // Clone staged skills
+      stagedTeachSkills = currentTeachSkills.map(s => ({
+        _id: s._id,
+        skillId: s.skillId?._id || s.skillId,
+        skillName: s.skillName,
+        level: s.level || 'Intermediate'
+      }));
+
+      stagedLearnSkills = currentLearnSkills.map(s => ({
+        _id: s._id,
+        skillId: s.skillId?._id || s.skillId,
+        skillName: s.skillName,
+        level: s.level || 'Beginner'
+      }));
+
+      renderStagedSkillsList('teach');
+      renderStagedSkillsList('learn');
+
+      // Clear search inputs
+      document.getElementById('searchTeachInput').value = '';
+      document.getElementById('searchLearnInput').value = '';
+      selectedCatalogueSkillTeach = null;
+      selectedCatalogueSkillLearn = null;
+
+      document.getElementById('editProfileModal').classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeEditModal() {
+      document.getElementById('editProfileModal').classList.remove('active');
+      document.body.style.overflow = '';
+      hideSkillDropdowns();
+    }
+
+    function handleModalBackdropClick(event) {
+      if (event.target.id === 'editProfileModal') {
+        closeEditModal();
+      }
+    }
+
+    function updateBioCounter(textarea) {
+      const counter = document.getElementById('bioCounter');
+      if (counter && textarea) {
+        counter.textContent = `${textarea.value.length} / 500`;
+      }
+    }
+
+    function renderModalAvatarPreview(src, name) {
+      const box = document.getElementById('modalAvatarPreview');
+      const removeBtn = document.getElementById('removePhotoBtn');
+      if (src) {
+        box.innerHTML = `<img src="${src}" alt="Avatar">`;
+        if (removeBtn) removeBtn.style.display = 'inline-block';
+      } else {
+        box.innerHTML = getInitials(name || 'User');
+        if (removeBtn) removeBtn.style.display = 'none';
+      }
+    }
+
+    function handleModalImageChange(input) {
+      if (input.files && input.files[0]) {
+        const file = input.files[0];
+        
+        // Validate type
+        if (!file.type.match(/^image\/(jpeg|png|gif|webp)$/i)) {
+          Toast.error('Please upload a valid image file (JPG, PNG, GIF, or WebP).');
+          input.value = '';
+          return;
+        }
+
+        // Validate size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+          Toast.error('Image size must be less than 5MB.');
+          input.value = '';
+          return;
+        }
+
+        pendingImageFile = file;
+        const reader = new FileReader();
+        reader.onload = e => {
+          renderModalAvatarPreview(e.target.result, document.getElementById('editFullName').value);
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function handleRemovePhoto() {
+      pendingImageFile = 'remove';
+      document.getElementById('modalProfileImage').value = '';
+      renderModalAvatarPreview('', document.getElementById('editFullName').value);
+    }
+
+    // Skills Staging & Management inside Modal
+    function renderStagedSkillsList(type) {
+      const container = document.getElementById(type === 'teach' ? 'modalTeachSkillsList' : 'modalLearnSkillsList');
+      const list = type === 'teach' ? stagedTeachSkills : stagedLearnSkills;
+
+      if (!list || list.length === 0) {
+        container.innerHTML = `<span style="font-size:12px; color:var(--text-muted); font-style:italic;">No ${type === 'teach' ? 'teaching' : 'learning'} skills added yet.</span>`;
+        return;
+      }
+
+      container.innerHTML = list.map((item, idx) => `
+        <span class="modal-skill-chip">
+          <span style="display:inline-flex; width:16px; height:16px;">${SkillIcons.getIconSvg(item.skillName)}</span>
+          <strong>${escapeHtml(item.skillName)}</strong>
+          <span style="font-size:10px; color:var(--text-muted);">(${escapeHtml(item.level)})</span>
+          <span class="modal-skill-chip-remove" onclick="removeStagedSkill('${type}', ${idx})" title="Remove skill">✕</span>
+        </span>
+      `).join('');
+    }
+
+    function removeStagedSkill(type, index) {
+      if (type === 'teach') {
+        stagedTeachSkills.splice(index, 1);
+      } else {
+        stagedLearnSkills.splice(index, 1);
+      }
+      renderStagedSkillsList(type);
+    }
+
+    function showSkillDropdown(type) {
+      filterSkillSuggestions(type, document.getElementById(type === 'teach' ? 'searchTeachInput' : 'searchLearnInput').value);
+    }
+
+    function hideSkillDropdowns() {
+      const d1 = document.getElementById('dropdownTeachMenu');
+      const d2 = document.getElementById('dropdownLearnMenu');
+      if (d1) d1.classList.remove('open');
+      if (d2) d2.classList.remove('open');
+    }
+
+    function filterSkillSuggestions(type, query = '') {
+      const menu = document.getElementById(type === 'teach' ? 'dropdownTeachMenu' : 'dropdownLearnMenu');
+      if (!menu) return;
+
+      const q = (query || '').trim().toLowerCase();
+      const currentList = type === 'teach' ? stagedTeachSkills : stagedLearnSkills;
+      const currentNames = new Set(currentList.map(s => s.skillName.toLowerCase()));
+
+      let matches = catalogueSkills.filter(s => {
+        if (currentNames.has(s.name.toLowerCase())) return false;
+        if (!q) return true;
+        if (s.name.toLowerCase().includes(q)) return true;
+        if (s.category && s.category.toLowerCase().includes(q)) return true;
+        if (s.aliases && s.aliases.some(a => a.toLowerCase().includes(q))) return true;
+        return false;
+      }).slice(0, 30);
+
+      if (matches.length === 0) {
+        menu.innerHTML = `<div style="padding:10px; font-size:12px; color:var(--text-muted); text-align:center;">No matching skills found in catalogue.</div>`;
+        menu.classList.add('open');
+        return;
+      }
+
+      menu.innerHTML = matches.map(s => `
+        <div class="modal-skill-dropdown-item" onclick="chooseCatalogueSkill('${type}', '${s._id}', '${escapeHtml(s.name).replace(/'/g, "\\'")}')">
+          <span style="display:inline-flex; width:18px; height:18px;">${SkillIcons.getIconSvg(s.name, s.iconType, s.iconKey)}</span>
+          <span style="flex:1;">${escapeHtml(s.name)}</span>
+          <span style="font-size:11px; color:var(--text-muted);">${escapeHtml(s.category || 'Skill')}</span>
+        </div>
+      `).join('');
+
+      menu.classList.add('open');
+    }
+
+    function chooseCatalogueSkill(type, skillId, skillName) {
+      if (type === 'teach') {
+        selectedCatalogueSkillTeach = { skillId, skillName };
+        document.getElementById('searchTeachInput').value = skillName;
+      } else {
+        selectedCatalogueSkillLearn = { skillId, skillName };
+        document.getElementById('searchLearnInput').value = skillName;
+      }
+      hideSkillDropdowns();
+    }
+
+    function addSelectedSkill(type) {
+      const selected = type === 'teach' ? selectedCatalogueSkillTeach : selectedCatalogueSkillLearn;
+      const inputEl = document.getElementById(type === 'teach' ? 'searchTeachInput' : 'searchLearnInput');
+      const levelEl = document.getElementById(type === 'teach' ? 'teachLevelSelect' : 'learnLevelSelect');
+      const queryName = inputEl.value.trim();
+
+      if (!queryName) {
+        Toast.warning('Please select a skill from the catalogue first.');
+        return;
+      }
+
+      let skillToAdd = selected;
+
+      // If user typed without clicking dropdown, search catalogue by exact or close name
+      if (!skillToAdd || skillToAdd.skillName.toLowerCase() !== queryName.toLowerCase()) {
+        const found = catalogueSkills.find(s => s.name.toLowerCase() === queryName.toLowerCase());
+        if (found) {
+          skillToAdd = { skillId: found._id, skillName: found.name };
+        } else {
+          Toast.warning(`"${queryName}" was not found in the SkillSync database. Please choose from suggested skills.`);
+          return;
+        }
+      }
+
+      const list = type === 'teach' ? stagedTeachSkills : stagedLearnSkills;
+      if (list.some(s => s.skillName.toLowerCase() === skillToAdd.skillName.toLowerCase())) {
+        Toast.warning(`${skillToAdd.skillName} is already added.`);
+        return;
+      }
+
+      list.push({
+        skillId: skillToAdd.skillId,
+        skillName: skillToAdd.skillName,
+        level: levelEl.value
+      });
+
+      renderStagedSkillsList(type);
+
+      // Reset picker
+      inputEl.value = '';
+      if (type === 'teach') selectedCatalogueSkillTeach = null;
+      else selectedCatalogueSkillLearn = null;
+      hideSkillDropdowns();
+    }
+
+    // Close skill dropdowns when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.modal-skill-select-wrapper')) {
+        hideSkillDropdowns();
+      }
+    });
+
+    // Save Changes Handler
+    async function handleSaveProfile(e) {
+      e.preventDefault();
+      const saveBtn = document.getElementById('saveProfileBtn');
+      if (saveBtn.disabled) return;
+
+      const fullName = document.getElementById('editFullName').value.trim();
+      const rawUsername = document.getElementById('editUsername').value.trim().toLowerCase().replace(/^@/, '');
+      const phone = document.getElementById('editPhone').value.trim();
+      const college = document.getElementById('editCollege').value.trim();
+      const department = document.getElementById('editDepartment').value.trim();
+      const year = document.getElementById('editYear').value;
+      const location = document.getElementById('editLocation').value.trim();
+      const availability = document.getElementById('editAvailability').value;
+      const bio = document.getElementById('editBio').value.trim();
+      const learningGoals = document.getElementById('editLearningGoals').value.trim();
+      const linkedin = document.getElementById('editLinkedin').value.trim();
+      const github = document.getElementById('editGithub').value.trim();
+      const portfolio = document.getElementById('editPortfolio').value.trim();
+
+      // Basic client validation
+      if (!fullName || fullName.length < 2) {
+        Toast.error('Please enter your full name (minimum 2 characters).');
+        document.getElementById('editFullName').focus();
+        return;
+      }
+
+      if (!rawUsername || !/^[a-zA-Z0-9_.-]{3,30}$/.test(rawUsername)) {
+        Toast.error('Username must be 3-30 characters and contain only letters, numbers, underscores, dots, or hyphens.');
+        document.getElementById('editUsername').focus();
+        return;
+      }
+
+      // Start saving indicator
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = '<span class="btn-spinner"></span> Saving...';
+
+      try {
+        const formData = new FormData();
+        formData.append('fullName', fullName);
+        formData.append('username', rawUsername);
+        formData.append('phone', phone);
+        formData.append('college', college);
+        formData.append('department', department);
+        formData.append('year', year);
+        formData.append('location', location);
+        formData.append('availability', availability);
+        formData.append('bio', bio);
+        formData.append('learningGoals', learningGoals);
+        formData.append('linkedin', linkedin);
+        formData.append('github', github);
+        formData.append('portfolio', portfolio);
+
+        if (pendingImageFile && pendingImageFile !== 'remove') {
+          formData.append('profileImage', pendingImageFile);
+        }
+
+        // 1. Send profile updates to backend
+        const updateRes = await api.upload('/users/me', formData);
+        const updatedUser = updateRes.user;
+
+        // 2. Synchronize Skills (Diff against initial skills)
+        await syncSkillsDiff('teach', currentTeachSkills, stagedTeachSkills);
+        await syncSkillsDiff('learn', currentLearnSkills, stagedLearnSkills);
+
+        // Update local session
+        api.setUser(updatedUser);
+
+        Toast.success('Profile updated successfully!');
+        closeEditModal();
+
+        // Refresh view with updated information
+        await loadProfile();
+
+      } catch (err) {
+        console.error('Save profile error:', err);
+        Toast.error(err.message || 'Failed to update profile. Please check the fields and try again.');
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save Changes';
+      }
+    }
+
+    // Helper: calculate diff and synchronize skills
+    async function syncSkillsDiff(type, originalList, stagedList) {
+      // Find deleted skills (in original but not in staged)
+      const stagedIds = new Set(stagedList.map(s => (s.skillId?._id || s.skillId || '').toString()));
+      const toDelete = originalList.filter(o => !stagedIds.has((o.skillId?._id || o.skillId || '').toString()));
+
+      for (const item of toDelete) {
+        try {
+          await api.delete(`/user-skills/${item._id}`);
+        } catch (e) {
+          console.warn(`Could not remove ${item.skillName}:`, e);
+        }
+      }
+
+      // Find newly added skills (in staged without an original match)
+      const originalSkillIds = new Set(originalList.map(o => (o.skillId?._id || o.skillId || '').toString()));
+      const toAdd = stagedList.filter(s => !originalSkillIds.has((s.skillId?._id || s.skillId || '').toString()));
+
+      if (toAdd.length > 0) {
+        try {
+          await api.post('/user-skills/bulk', {
+            type,
+            skills: toAdd.map(s => ({
+              skillId: s.skillId,
+              skillName: s.skillName,
+              level: s.level
+            }))
+          });
+        } catch (e) {
+          console.warn(`Bulk add error for ${type}:`, e);
+        }
+      }
+    }
+
+    // Initial load
+    loadProfile();
+  </script>
+</body>
+
+</html>

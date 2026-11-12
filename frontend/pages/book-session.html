@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Book Session – SkillSync</title>
+  <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/sessions.css">
+</head>
+<body>
+  <div class="app-layout" id="app"></div>
+  <script src="/js/api.js"></script>
+  <script src="/js/components.js"></script>
+  <script>
+    if (!initAuthPage()) throw new Error('Not authenticated');
+
+    let connections = [];
+    let selectedPartner = null;
+    let selectedSkill = null;
+    let selectedDate = null;
+    let selectedTime = null;
+    let currentMonth = new Date().getMonth();
+    let currentYear = new Date().getFullYear();
+
+    const availableTimeSlots = [
+      '09:00 AM', '09:30 AM', '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM',
+      '12:00 PM', '12:30 PM', '01:00 PM', '01:30 PM', '02:00 PM', '02:30 PM',
+      '03:00 PM', '03:30 PM', '04:00 PM', '04:30 PM', '05:00 PM', '05:30 PM',
+      '06:00 PM', '06:30 PM', '07:00 PM'
+    ];
+
+    async function initPage() {
+      try {
+        const data = await api.get('/sessions/connections');
+        connections = data.connections || [];
+        render();
+      } catch (err) {
+        console.error('Failed to load connections:', err);
+        Toast.error('Failed to load connected partners');
+        connections = [];
+        render();
+      }
+    }
+
+    function render() {
+      if (!connections || connections.length === 0) {
+        document.getElementById('app').innerHTML = renderAuthenticatedLayout('Book Session', 'sessions', `
+          <div class="page-header">
+            <h1>Book a Session</h1>
+            <p>Schedule a learning session with your skill partners.</p>
+          </div>
+          <div class="card text-center" style="padding: 48px 24px; max-width: 600px; margin: 40px auto;">
+            <div style="font-size: 48px; margin-bottom: 16px;">👥</div>
+            <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 8px;">No learning partners yet</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 24px; font-size: 14px; line-height: 1.6;">
+              Connect with a student through Matches or accept an exchange request to book a session.
+            </p>
+            <a href="/pages/matches.html" class="btn btn-primary btn-lg" style="display: inline-flex; align-items: center; gap: 8px;">
+              ✨ Explore Matches
+            </a>
+          </div>
+        `);
+        return;
+      }
+
+      // Auto-select first partner if none selected
+      if (!selectedPartner && connections.length > 0) {
+        selectPartner(connections[0].partner._id);
+      }
+
+      document.getElementById('app').innerHTML = renderAuthenticatedLayout('Book Session', 'sessions', `
+        <div class="page-header">
+          <h1>Book a Session</h1>
+          <p>Schedule a learning session with your skill partners.</p>
+        </div>
+
+        <div class="book-session-form">
+          <!-- Column 1: Partner & Calendar -->
+          <div style="display: flex; flex-direction: column; gap: 24px;">
+            <!-- Partner Selection -->
+            <div class="card">
+              <h3 style="margin-bottom: 16px; font-size: 16px; font-weight: 700;">Choose Your Learning Partner</h3>
+              <div class="partner-cards-list" id="partnerListContainer">
+                ${connections.map(conn => {
+                  const p = conn.partner;
+                  const isSelected = selectedPartner && selectedPartner.partner._id === p._id;
+                  const skillsSummary = conn.skills.map(s => s.skillName).join(' • ');
+                  const teachSkillObj = conn.skills.find(s => s.type === 'Can Teach You');
+                  const learnSkillObj = conn.skills.find(s => s.type === 'Wants to Learn');
+                  const primaryTag = teachSkillObj 
+                    ? `Can teach you ${teachSkillObj.skillName}` 
+                    : (learnSkillObj ? `Wants to learn ${learnSkillObj.skillName}` : '');
+
+                  return `
+                    <div class="partner-card ${isSelected ? 'selected' : ''}" onclick="selectPartner('${p._id}')">
+                      <div class="partner-card-radio">
+                        <input type="radio" name="partnerRadio" ${isSelected ? 'checked' : ''} tabindex="-1">
+                      </div>
+                      <div class="partner-avatar-container">
+                        ${renderAvatar(p, 'md')}
+                        <span class="status-dot ${p.isOnline ? 'online' : 'offline'}" title="${p.isOnline ? 'Online' : 'Offline'}"></span>
+                      </div>
+                      <div class="partner-info">
+                        <div class="partner-name">${p.fullName}</div>
+                        <div class="partner-dept">${p.department || 'Student'}${p.year ? ` • ${p.year}` : ''}</div>
+                        ${skillsSummary ? `<div style="font-size: 12px; color: var(--text-muted); font-weight: 500;">${skillsSummary}</div>` : ''}
+                        ${primaryTag ? `
+                          <div class="partner-skills-list">
+                            <span class="skill-tag ${teachSkillObj ? 'can-teach' : 'wants-learn'}">
+                              ${teachSkillObj ? '💡' : '🎓'} ${primaryTag}
+                            </span>
+                          </div>
+                        ` : ''}
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+
+            <!-- Calendar Widget -->
+            <div class="calendar-widget" id="calendarWidget"></div>
+            <!-- Time Slots -->
+            <div id="timeSlotsContainer"></div>
+          </div>
+
+          <!-- Column 2: Form Details -->
+          <div>
+            <div class="card" style="position: sticky; top: 90px;">
+              <h3 style="margin-bottom: 20px; font-size: 18px; font-weight: 700;">Session Details</h3>
+              
+              <!-- Selected Partner Readonly Indicator -->
+              <div class="form-group">
+                <label class="form-label">Selected Partner</label>
+                <div style="padding: 10px 14px; background: var(--bg-page); border: 1px solid var(--border); border-radius: var(--radius-md); display: flex; align-items: center; gap: 10px;">
+                  ${selectedPartner ? renderAvatar(selectedPartner.partner, 'sm') : ''}
+                  <div>
+                    <strong style="font-size: 14px; color: var(--text-primary); display: block;">${selectedPartner ? selectedPartner.partner.fullName : 'Select a partner'}</strong>
+                    <span style="font-size: 12px; color: var(--text-secondary);">${selectedPartner ? (selectedPartner.partner.department || 'Learning Partner') : ''}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Skill Dropdown -->
+              <div class="form-group">
+                <label class="form-label">Skill</label>
+                <select class="form-select" id="skillSelect" onchange="onSkillChange()">
+                  ${selectedPartner && selectedPartner.skills && selectedPartner.skills.length > 0
+                    ? selectedPartner.skills.map((s, idx) => `
+                        <option value="${idx}">${s.skillName} (${s.type})</option>
+                      `).join('')
+                    : '<option value="">No matching skills found</option>'
+                  }
+                </select>
+              </div>
+
+              <!-- Time Dropdown / Display -->
+              <div class="form-group">
+                <label class="form-label">Time Slot</label>
+                <select class="form-select" id="timeSelect" onchange="onTimeSelectDropdown(this.value)">
+                  <option value="">-- Select Time Slot --</option>
+                  ${availableTimeSlots.map(t => `<option value="${t}" ${selectedTime === t ? 'selected' : ''}>${t}</option>`).join('')}
+                </select>
+              </div>
+
+              <!-- Duration -->
+              <div class="form-group">
+                <label class="form-label">Duration</label>
+                <select class="form-select" id="duration" onchange="updateSummary()">
+                  <option value="30">30 minutes</option>
+                  <option value="45">45 minutes</option>
+                  <option value="60" selected>60 minutes</option>
+                  <option value="90">90 minutes</option>
+                  <option value="120">120 minutes (2 hours)</option>
+                </select>
+              </div>
+
+              <!-- Mode -->
+              <div class="form-group">
+                <label class="form-label">Mode</label>
+                <select class="form-select" id="mode" onchange="updateSummary()">
+                  <option value="online">Online</option>
+                  <option value="offline">Offline / In Person</option>
+                </select>
+              </div>
+
+              <!-- Learning Objective -->
+              <div class="form-group">
+                <label class="form-label">Learning Objective</label>
+                <textarea class="form-textarea" id="objective" placeholder="What specific topics or goals do you want to cover?" rows="3"></textarea>
+              </div>
+
+              <!-- Notes -->
+              <div class="form-group">
+                <label class="form-label">Notes (Optional)</label>
+                <textarea class="form-textarea" id="notes" placeholder="Any additional notes or preferred meeting link/location..." rows="2"></textarea>
+              </div>
+
+              <div id="selectedSummary" style="margin-bottom: 16px;"></div>
+
+              <button class="btn btn-primary btn-lg" style="width: 100%; justify-content: center;" onclick="bookSession()">
+                📅 Confirm & Book Session
+              </button>
+            </div>
+          </div>
+        </div>
+      `);
+
+      renderCalendar();
+      renderTimeSlots();
+      updateSummary();
+    }
+
+    function selectPartner(partnerId) {
+      const conn = connections.find(c => c.partner._id === partnerId);
+      if (!conn) return;
+      selectedPartner = conn;
+      selectedSkill = conn.skills && conn.skills.length > 0 ? conn.skills[0] : null;
+
+      // Re-render UI elements
+      document.querySelectorAll('.partner-card').forEach(card => card.classList.remove('selected'));
+      const activeCard = Array.from(document.querySelectorAll('.partner-card')).find(card => card.innerHTML.includes(conn.partner.fullName));
+      if (activeCard) activeCard.classList.add('selected');
+
+      const skillSelect = document.getElementById('skillSelect');
+      if (skillSelect) {
+        skillSelect.innerHTML = conn.skills && conn.skills.length > 0
+          ? conn.skills.map((s, idx) => `<option value="${idx}">${s.skillName} (${s.type})</option>`).join('')
+          : '<option value="">No matching skills found</option>';
+      }
+
+      updateSummary();
+    }
+
+    function onSkillChange() {
+      const idx = parseInt(document.getElementById('skillSelect').value);
+      if (selectedPartner && selectedPartner.skills && selectedPartner.skills[idx]) {
+        selectedSkill = selectedPartner.skills[idx];
+      }
+      updateSummary();
+    }
+
+    function renderCalendar() {
+      const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+      const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+      const today = new Date();
+
+      let daysHtml = ['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => `<div class="calendar-day-name">${d}</div>`).join('');
+      for (let i = 0; i < firstDay; i++) daysHtml += '<div class="calendar-day other-month"></div>';
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dateObj = new Date(currentYear, currentMonth, d);
+        const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const isPast = dateObj < todayStart;
+        const isToday = d === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear();
+        const isSelected = selectedDate && d === selectedDate.getDate() && currentMonth === selectedDate.getMonth() && currentYear === selectedDate.getFullYear();
+
+        daysHtml += `<button class="calendar-day ${isPast ? 'disabled' : ''} ${isToday ? 'today' : ''} ${isSelected ? 'selected' : ''}" 
+          ${isPast ? 'disabled' : ''} onclick="selectDate(${d})">${d}</button>`;
+      }
+
+      const widget = document.getElementById('calendarWidget');
+      if (widget) {
+        widget.innerHTML = `
+          <div class="calendar-header">
+            <h3>${months[currentMonth]} ${currentYear}</h3>
+            <div class="calendar-nav">
+              <button onclick="changeMonth(-1)">‹</button>
+              <button onclick="changeMonth(1)">›</button>
+            </div>
+          </div>
+          <div class="calendar-grid">${daysHtml}</div>
+        `;
+      }
+    }
+
+    function changeMonth(dir) {
+      currentMonth += dir;
+      if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+      if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+      renderCalendar();
+    }
+
+    function selectDate(day) {
+      selectedDate = new Date(currentYear, currentMonth, day);
+      renderCalendar();
+      renderTimeSlots();
+      updateSummary();
+    }
+
+    function renderTimeSlots() {
+      const container = document.getElementById('timeSlotsContainer');
+      if (!container) return;
+      if (!selectedDate) {
+        container.innerHTML = `
+          <div class="card" style="text-align:center; padding:16px; color:var(--text-muted);">
+            Please select a date from the calendar to view available time slots.
+          </div>
+        `;
+        return;
+      }
+
+      const today = new Date();
+      const isToday = selectedDate.getDate() === today.getDate() && 
+                      selectedDate.getMonth() === today.getMonth() && 
+                      selectedDate.getFullYear() === today.getFullYear();
+
+      const parseTimeToMin = (t) => {
+        const m = t.match(/^(\d{2}):(\d{2})\s*(AM|PM)$/);
+        if (!m) return 0;
+        let h = parseInt(m[1], 10);
+        const mins = parseInt(m[2], 10);
+        if (m[3] === 'PM' && h < 12) h += 12;
+        if (m[3] === 'AM' && h === 12) h = 0;
+        return h * 60 + mins;
+      };
+
+      const currentMinutes = today.getHours() * 60 + today.getMinutes();
+
+      container.innerHTML = `
+        <div class="card">
+          <h4 style="margin-bottom: 12px; font-size: 15px;">Available Time Slots (${selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})</h4>
+          <div class="time-slots">
+            ${availableTimeSlots.map(t => {
+              const isPastTime = isToday && parseTimeToMin(t) <= currentMinutes;
+              const isSel = selectedTime === t;
+              return `<button class="time-slot ${isPastTime ? 'unavailable' : ''} ${isSel ? 'selected' : ''}" 
+                ${isPastTime ? 'disabled' : ''} onclick="selectTime('${t}')">${t}</button>`;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    function selectTime(time) {
+      selectedTime = time;
+      const timeSelect = document.getElementById('timeSelect');
+      if (timeSelect) timeSelect.value = time;
+      renderTimeSlots();
+      updateSummary();
+    }
+
+    function onTimeSelectDropdown(val) {
+      selectedTime = val;
+      renderTimeSlots();
+      updateSummary();
+    }
+
+    function updateSummary() {
+      const el = document.getElementById('selectedSummary');
+      if (!el) return;
+      if (selectedPartner && selectedSkill && selectedDate && selectedTime) {
+        const duration = document.getElementById('duration')?.value || '60';
+        const mode = document.getElementById('mode')?.value || 'online';
+        const dateStr = selectedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+        
+        el.innerHTML = `
+          <div style="padding: 12px 16px; background: rgba(91, 92, 246, 0.08); border: 1px solid rgba(91, 92, 246, 0.2); border-radius: var(--radius-md);">
+            <div style="color: var(--primary); font-weight: 700; font-size: 13px; margin-bottom: 4px;">📌 Booking Summary</div>
+            <div style="font-size: 13px; color: var(--text-primary); line-height: 1.5;">
+              <strong>Partner:</strong> ${selectedPartner.partner.fullName}<br>
+              <strong>Skill:</strong> ${selectedSkill.skillName}<br>
+              <strong>Date & Time:</strong> ${dateStr} at ${selectedTime}<br>
+              <strong>Duration:</strong> ${duration} mins (${mode === 'online' ? 'Online' : 'Offline'})
+            </div>
+          </div>
+        `;
+      } else {
+        el.innerHTML = `
+          <div style="padding: 10px 14px; background: var(--bg-page); border: 1px dashed var(--border); border-radius: var(--radius-md); font-size: 12px; color: var(--text-muted); text-align: center;">
+            Select partner, skill, date, and time slot to complete booking summary.
+          </div>
+        `;
+      }
+    }
+
+    async function bookSession() {
+      if (!selectedPartner) { Toast.warning('Please select a learning partner'); return; }
+      if (!selectedSkill) { Toast.warning('Please select a skill'); return; }
+      if (!selectedDate) { Toast.warning('Please select a date from the calendar'); return; }
+      if (!selectedTime) { Toast.warning('Please select a time slot'); return; }
+
+      const duration = parseInt(document.getElementById('duration').value, 10);
+      const mode = document.getElementById('mode').value;
+      const objective = document.getElementById('objective').value.trim();
+      const notes = document.getElementById('notes').value.trim();
+
+      try {
+        const payload = {
+          partner: selectedPartner.partner._id,
+          skillName: selectedSkill.skillName,
+          skillId: selectedSkill.skillId,
+          exchangeId: selectedSkill.exchangeId,
+          date: selectedDate.toISOString(),
+          startTime: selectedTime,
+          duration: duration,
+          mode: mode,
+          learningObjective: objective,
+          notes: notes
+        };
+
+        const res = await api.post('/sessions', payload);
+        Toast.success(res.message || 'Session requested successfully!');
+        setTimeout(() => window.location.href = '/pages/sessions.html?tab=pending', 1000);
+      } catch (e) {
+        console.error('Book Session error:', e);
+        Toast.error(e.message || 'This time slot is already booked. Please choose another time.');
+      }
+    }
+
+    initPage();
+  </script>
+</body>
+</html>

@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings – SkillSync</title>
+  <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/settings.css">
+</head>
+<body>
+  <div class="app-layout" id="app"></div>
+  <script src="/js/api.js"></script>
+  <script src="/js/components.js"></script>
+  <script>
+    if (!initAuthPage()) throw new Error('Not authenticated');
+    let activeTab = 'security';
+    let currentUser = null;
+
+    async function loadSettingsPage() {
+      try {
+        const data = await api.get('/users/me');
+        currentUser = data.user;
+
+        document.getElementById('app').innerHTML = renderAuthenticatedLayout('Settings', 'settings', `
+          <div class="page-header">
+            <h1>Account Settings</h1>
+            <p>Manage your account security, notification preferences, and privacy controls.</p>
+          </div>
+
+          <div class="settings-layout">
+            <div class="settings-nav">
+              <button class="settings-nav-item ${activeTab==='security'?'active':''}" onclick="switchTab('security')">🔒 Security & Password</button>
+              <button class="settings-nav-item ${activeTab==='privacy'?'active':''}" onclick="switchTab('privacy')">👁️ Privacy & Availability</button>
+              <button class="settings-nav-item ${activeTab==='notifications'?'active':''}" onclick="switchTab('notifications')">🔔 Notifications</button>
+              <button class="settings-nav-item ${activeTab==='danger'?'active':''}" onclick="switchTab('danger')" style="color:var(--danger);">⚠️ Danger Zone</button>
+            </div>
+
+            <div class="settings-panel" id="settingsPanel"></div>
+          </div>
+        `);
+
+        renderTabContent();
+      } catch (e) {
+        Toast.error('Failed to load user settings');
+      }
+    }
+
+    function switchTab(tab) {
+      activeTab = tab;
+      document.querySelectorAll('.settings-nav-item').forEach((item, index) => {
+        item.classList.toggle('active', 
+          (tab === 'security' && index === 0) ||
+          (tab === 'privacy' && index === 1) ||
+          (tab === 'notifications' && index === 2) ||
+          (tab === 'danger' && index === 3)
+        );
+      });
+      renderTabContent();
+    }
+
+    function renderTabContent() {
+      const panel = document.getElementById('settingsPanel');
+      if (!panel || !currentUser) return;
+
+      if (activeTab === 'security') {
+        panel.innerHTML = `
+          <div class="settings-section">
+            <h3>Change Password</h3>
+            <p>Ensure your account is using a long, secure password to stay safe.</p>
+            <form onsubmit="handleChangePassword(event)" style="max-width:480px;">
+              <div class="form-group">
+                <label class="form-label">Current Password</label>
+                <input type="password" class="form-input" id="currentPassword" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">New Password</label>
+                <input type="password" class="form-input" id="newPassword" required minlength="6">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Confirm New Password</label>
+                <input type="password" class="form-input" id="confirmNewPassword" required>
+              </div>
+              <button type="submit" class="btn btn-primary" id="pwdBtn">Update Password</button>
+            </form>
+          </div>
+        `;
+      } else if (activeTab === 'privacy') {
+        panel.innerHTML = `
+          <div class="settings-section">
+            <h3>Privacy Controls</h3>
+            <p>Control who can discover your profile and see your exchange activity.</p>
+            
+            <div class="setting-item">
+              <div class="setting-info">
+                <h4>Open for New Exchanges</h4>
+                <p>Allow other students to find you in matching and send exchange requests.</p>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" id="toggleAvailable" ${currentUser.isAvailable !== false ? 'checked' : ''} onchange="updatePrivacySetting()">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <h4>Public Profile Visibility</h4>
+                <p>Show your portfolio and verified skills in public student directories.</p>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" id="togglePublic" checked onchange="updatePrivacySetting()">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+        `;
+      } else if (activeTab === 'notifications') {
+        panel.innerHTML = `
+          <div class="settings-section">
+            <h3>Notification Preferences</h3>
+            <p>Choose when and how you want to be notified about platform activity.</p>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <h4>Exchange Requests</h4>
+                <p>Notify me when a student requests a skill exchange.</p>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" id="notifRequests" checked onchange="updateNotifSetting()">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <h4>Session Reminders</h4>
+                <p>Receive reminders 1 hour before scheduled exchange sessions.</p>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" id="notifSessions" checked onchange="updateNotifSetting()">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <h4>Direct Messages</h4>
+                <p>Alert me when I receive new chat messages from partners.</p>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" id="notifMessages" checked onchange="updateNotifSetting()">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+        `;
+      } else if (activeTab === 'danger') {
+        panel.innerHTML = `
+          <div class="danger-zone">
+            <h4>Delete Account</h4>
+            <p>Once you delete your account, all your data, skill records, sessions, and messages will be permanently removed. This action cannot be undone.</p>
+            <button class="btn btn-danger" onclick="handleDeleteAccount()">⚠️ Permanently Delete Account</button>
+          </div>
+        `;
+      }
+    }
+
+    async function handleChangePassword(e) {
+      e.preventDefault();
+      const currentPassword = document.getElementById('currentPassword').value;
+      const newPassword = document.getElementById('newPassword').value;
+      const confirmNewPassword = document.getElementById('confirmNewPassword').value;
+
+      if (newPassword !== confirmNewPassword) {
+        Toast.error('New passwords do not match');
+        return;
+      }
+
+      const btn = document.getElementById('pwdBtn');
+      btn.disabled = true;
+      btn.textContent = 'Updating...';
+
+      try {
+        await api.put('/settings/password', { currentPassword, newPassword });
+        Toast.success('Password updated successfully!');
+        document.getElementById('currentPassword').value = '';
+        document.getElementById('newPassword').value = '';
+        document.getElementById('confirmNewPassword').value = '';
+      } catch (e) {
+        Toast.error(e.message || 'Failed to update password');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Update Password';
+      }
+    }
+
+    async function updatePrivacySetting() {
+      const isAvailable = document.getElementById('toggleAvailable').checked;
+      try {
+        await api.put('/settings/privacy', { isAvailable });
+        Toast.success('Privacy preferences updated');
+      } catch (e) {
+        Toast.error(e.message || 'Failed to update privacy');
+      }
+    }
+
+    async function updateNotifSetting() {
+      const requests = document.getElementById('notifRequests').checked;
+      const sessions = document.getElementById('notifSessions').checked;
+      const messages = document.getElementById('notifMessages').checked;
+
+      try {
+        await api.put('/settings/notifications', {
+          exchangeRequests: requests,
+          sessionReminders: sessions,
+          chatMessages: messages
+        });
+        Toast.success('Notification preferences updated');
+      } catch (e) {
+        Toast.error(e.message || 'Failed to update notification settings');
+      }
+    }
+
+    async function handleDeleteAccount() {
+      const confirmation = prompt('Type "DELETE" to confirm permanent account deletion:');
+      if (confirmation !== 'DELETE') {
+        Toast.info('Account deletion cancelled');
+        return;
+      }
+
+      try {
+        await api.delete('/settings/account');
+        api.removeToken();
+        Toast.success('Account deleted');
+        setTimeout(() => window.location.href = '/', 1000);
+      } catch (e) {
+        Toast.error(e.message || 'Failed to delete account');
+      }
+    }
+
+    loadSettingsPage();
+  </script>
+</body>
+</html>

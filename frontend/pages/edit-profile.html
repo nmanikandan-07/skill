@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Edit Profile – SkillSync</title>
+  <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/profile.css">
+</head>
+
+<body>
+  <div class="app-layout" id="app"></div>
+
+  <script src="/js/skill-icons.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/components.js"></script>
+
+  <script>
+    if (!initAuthPage()) throw new Error('Not authenticated');
+
+    let currentUser = null;
+    let currentTeachSkills = [];
+    let currentLearnSkills = [];
+    let catalogueSkills = [];
+    let stagedTeachSkills = [];
+    let stagedLearnSkills = [];
+    let pendingImageFile = null;
+    let selectedCatalogueSkillTeach = null;
+    let selectedCatalogueSkillLearn = null;
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/[&<>"']/g, m => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      }[m]));
+    }
+
+    async function loadEditPage() {
+      try {
+        const [userData, skillData] = await Promise.all([
+          api.get('/users/me'),
+          api.get('/skills')
+        ]);
+
+        currentUser = userData.user;
+        currentTeachSkills = userData.teachSkills || [];
+        currentLearnSkills = userData.learnSkills || [];
+        catalogueSkills = skillData.skills || [];
+
+        stagedTeachSkills = currentTeachSkills.map(s => ({
+          _id: s._id,
+          skillId: s.skillId?._id || s.skillId,
+          skillName: s.skillName,
+          level: s.level || 'Intermediate'
+        }));
+
+        stagedLearnSkills = currentLearnSkills.map(s => ({
+          _id: s._id,
+          skillId: s.skillId?._id || s.skillId,
+          skillName: s.skillName,
+          level: s.level || 'Beginner'
+        }));
+
+        renderEditPage();
+      } catch (err) {
+        console.error('Failed to load edit profile:', err);
+        Toast.error('Failed to load profile. Please try again.');
+      }
+    }
+
+    function renderEditPage() {
+      const u = currentUser;
+      const linkedinUrl = u.linkedin || (u.socialLinks && u.socialLinks.linkedin) || '';
+      const githubUrl = u.github || (u.socialLinks && u.socialLinks.github) || '';
+      const portfolioUrl = u.portfolio || (u.socialLinks && u.socialLinks.portfolio) || '';
+
+      const content = `
+        <div class="page-header flex-between">
+          <div>
+            <h1>Edit Student Profile</h1>
+            <p>Keep your profile details, skills, and academic information up to date.</p>
+          </div>
+          <a href="/pages/profile.html" class="btn btn-secondary">
+            ← Back to Profile
+          </a>
+        </div>
+
+        <div class="card" style="max-width: 780px; margin: 0 auto; padding: 32px;">
+          <form id="standaloneProfileForm" onsubmit="saveProfileChanges(event)">
+            
+            <!-- Photo Upload Row -->
+            <div class="avatar-upload-row">
+              <div class="avatar-preview-box" id="avatarPreviewBox">
+                ${u.profileImage ? `<img src="${u.profileImage}" alt="${escapeHtml(u.fullName)}">` : getInitials(u.fullName)}
+              </div>
+              <div class="avatar-upload-controls">
+                <input type="file" id="standaloneProfileImage" accept="image/jpeg,image/png,image/gif,image/webp" style="display:none;" onchange="handleImageSelection(this)">
+                <div style="display:flex; gap:8px;">
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('standaloneProfileImage').click()">
+                    📷 Change Photo
+                  </button>
+                  ${u.profileImage ? `
+                    <button type="button" class="btn btn-secondary btn-sm" id="standaloneRemovePhoto" onclick="removeSelectedPhoto()" style="color:var(--danger);">
+                      Remove
+                    </button>
+                  ` : ''}
+                </div>
+                <span class="avatar-upload-hint">Upload JPG, PNG, or WebP. Max 5MB.</span>
+              </div>
+            </div>
+
+            <!-- Identity & Contact -->
+            <div class="form-section-divider">👤 Identity & Contact</div>
+            <div class="edit-form-grid">
+              <div class="form-group">
+                <label class="form-label" for="fullNameInput">Full Name *</label>
+                <input type="text" class="form-input" id="fullNameInput" value="${escapeHtml(u.fullName || '')}" required placeholder="Full Name">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="usernameInput">Unique Username *</label>
+                <div class="input-with-prefix">
+                  <span class="input-prefix">@</span>
+                  <input type="text" class="form-input" id="usernameInput" value="${escapeHtml((u.username || (u.email || '').split('@')[0] || '').replace(/^@/, ''))}" required placeholder="username" pattern="^[a-zA-Z0-9_.-]{3,30}$" title="3-30 letters, numbers, _, ., -">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Email Address (Login)</label>
+                <input type="email" class="form-input" value="${escapeHtml(u.email || '')}" disabled>
+                <span style="font-size:11px; color:var(--text-muted); margin-top:3px; display:block;">🔒 Private to other students by default</span>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="phoneInput">Phone Number (Optional)</label>
+                <input type="tel" class="form-input" id="phoneInput" value="${escapeHtml(u.phone || '')}" placeholder="e.g. +91 98765 43210">
+                <span style="font-size:11px; color:var(--text-muted); margin-top:3px; display:block;">🔒 Kept private from other students by default</span>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="locationInput">City / Location</label>
+                <input type="text" class="form-input" id="locationInput" value="${escapeHtml(u.location || '')}" placeholder="City, State">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="availabilityInput">Availability</label>
+                <select class="form-select" id="availabilityInput">
+                  <option value="">Select Availability</option>
+                  ${['Morning', 'Afternoon', 'Evening', 'Flexible', 'Weekends Only'].map(a => `
+                    <option value="${a}" ${u.availability === a ? 'selected' : ''}>${a}</option>
+                  `).join('')}
+                </select>
+              </div>
+            </div>
+
+            <!-- Academic Info -->
+            <div class="form-section-divider">🎓 Academic Information</div>
+            <div class="edit-form-grid">
+              <div class="form-group edit-form-full">
+                <label class="form-label" for="collegeInput">College / University Name</label>
+                <input type="text" class="form-input" id="collegeInput" value="${escapeHtml(u.college || '')}" placeholder="Your university or college">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="departmentInput">Department</label>
+                <input type="text" class="form-input" id="departmentInput" value="${escapeHtml(u.department || '')}" placeholder="e.g. Computer Science">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="yearInput">Current Year of Study</label>
+                <select class="form-select" id="yearInput">
+                  <option value="">Select Year</option>
+                  ${['1st Year', '2nd Year', '3rd Year', '4th Year', 'Graduate', 'Post Graduate'].map(y => `
+                    <option value="${y}" ${u.year === y ? 'selected' : ''}>${y}</option>
+                  `).join('')}
+                </select>
+              </div>
+            </div>
+
+            <!-- Bio & Learning Goals -->
+            <div class="form-section-divider">📝 About & Goals</div>
+            <div class="form-group">
+              <label class="form-label" for="bioInput">Short Bio</label>
+              <textarea class="form-textarea" id="bioInput" rows="3" maxlength="500" placeholder="Introduce yourself..." oninput="updateBioCounter(this)">${escapeHtml(u.bio || '')}</textarea>
+              <div class="char-counter" id="bioCharCounter">${(u.bio || '').length} / 500</div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="learningGoalsInput">Learning Goals (Optional)</label>
+              <textarea class="form-textarea" id="learningGoalsInput" rows="2" maxlength="500" placeholder="What skills or topics do you want to learn this semester?">${escapeHtml(u.learningGoals || '')}</textarea>
+            </div>
+
+            <!-- Skills Management -->
+            <div class="form-section-divider">⚡ Skills Management</div>
+
+            <!-- Teaching Skills -->
+            <div class="form-group">
+              <label class="form-label" style="font-weight:600;">Skills I Can Teach</label>
+              <div class="modal-skills-box">
+                <div class="modal-skills-chips" id="stagedTeachContainer"></div>
+                <div class="modal-skill-add-row">
+                  <div class="modal-skill-select-wrapper">
+                    <input type="text" class="form-input" id="standaloneTeachSearch" placeholder="Search skill to teach..." autocomplete="off" oninput="filterDropdown('teach', this.value)" onfocus="openDropdown('teach')">
+                    <div class="modal-skill-dropdown" id="standaloneTeachDropdown"></div>
+                  </div>
+                  <select class="form-select" id="standaloneTeachLevel" style="width:140px;">
+                    <option value="Beginner">Beginner</option>
+                    <option value="Intermediate" selected>Intermediate</option>
+                    <option value="Advanced">Advanced</option>
+                    <option value="Expert">Expert</option>
+                  </select>
+                  <button type="button" class="btn btn-secondary" onclick="addSkillFromInput('teach')">Add</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Learning Skills -->
+            <div class="form-group">
+              <label class="form-label" style="font-weight:600;">Skills I Want to Learn</label>
+              <div class="modal-skills-box">
+                <div class="modal-skills-chips" id="stagedLearnContainer"></div>
+                <div class="modal-skill-add-row">
+                  <div class="modal-skill-select-wrapper">
+                    <input type="text" class="form-input" id="standaloneLearnSearch" placeholder="Search skill to learn..." autocomplete="off" oninput="filterDropdown('learn', this.value)" onfocus="openDropdown('learn')">
+                    <div class="modal-skill-dropdown" id="standaloneLearnDropdown"></div>
+                  </div>
+                  <select class="form-select" id="standaloneLearnLevel" style="width:140px;">
+                    <option value="Beginner" selected>Beginner</option>
+                    <option value="Intermediate">Intermediate</option>
+                    <option value="Advanced">Advanced</option>
+                    <option value="Expert">Expert</option>
+                  </select>
+                  <button type="button" class="btn btn-secondary" onclick="addSkillFromInput('learn')">Add</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Social Links -->
+            <div class="form-section-divider">🌐 Social & Portfolio Links</div>
+            <div class="edit-form-grid">
+              <div class="form-group">
+                <label class="form-label" for="linkedinInput">LinkedIn Profile URL</label>
+                <input type="url" class="form-input" id="linkedinInput" value="${escapeHtml(linkedinUrl)}" placeholder="https://linkedin.com/in/username">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="githubInput">GitHub Profile URL</label>
+                <input type="url" class="form-input" id="githubInput" value="${escapeHtml(githubUrl)}" placeholder="https://github.com/username">
+              </div>
+
+              <div class="form-group edit-form-full">
+                <label class="form-label" for="portfolioInput">Portfolio / Personal Website URL</label>
+                <input type="url" class="form-input" id="portfolioInput" value="${escapeHtml(portfolioUrl)}" placeholder="https://myportfolio.com">
+              </div>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:32px; padding-top:20px; border-top:1px solid var(--border-light);">
+              <a href="/pages/profile.html" class="btn btn-secondary btn-lg">Cancel</a>
+              <button type="submit" class="btn btn-primary btn-lg" id="standaloneSaveBtn">
+                Save Changes
+              </button>
+            </div>
+
+          </form>
+        </div>
+      `;
+
+      document.getElementById('app').innerHTML = renderAuthenticatedLayout('Edit Profile', 'profile', content);
+      renderSkillChips('teach');
+      renderSkillChips('learn');
+    }
+
+    function updateBioCounter(el) {
+      const counter = document.getElementById('bioCharCounter');
+      if (counter && el) {
+        counter.textContent = `${el.value.length} / 500`;
+      }
+    }
+
+    function handleImageSelection(input) {
+      if (input.files && input.files[0]) {
+        const file = input.files[0];
+        if (!file.type.match(/^image\/(jpeg|png|gif|webp)$/i)) {
+          Toast.error('Please select a valid image (JPG, PNG, GIF, or WebP).');
+          input.value = '';
+          return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+          Toast.error('Image size must be less than 5MB.');
+          input.value = '';
+          return;
+        }
+        pendingImageFile = file;
+        const reader = new FileReader();
+        reader.onload = e => {
+          document.getElementById('avatarPreviewBox').innerHTML = `<img src="${e.target.result}" alt="Preview">`;
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function removeSelectedPhoto() {
+      pendingImageFile = 'remove';
+      document.getElementById('standaloneProfileImage').value = '';
+      document.getElementById('avatarPreviewBox').innerHTML = getInitials(currentUser.fullName);
+    }
+
+    function renderSkillChips(type) {
+      const container = document.getElementById(type === 'teach' ? 'stagedTeachContainer' : 'stagedLearnContainer');
+      if (!container) return;
+      const list = type === 'teach' ? stagedTeachSkills : stagedLearnSkills;
+
+      if (!list || list.length === 0) {
+        container.innerHTML = `<span style="font-size:12px; color:var(--text-muted); font-style:italic;">No ${type === 'teach' ? 'teaching' : 'learning'} skills added yet.</span>`;
+        return;
+      }
+
+      container.innerHTML = list.map((item, idx) => `
+        <span class="modal-skill-chip">
+          <span style="display:inline-flex; width:16px; height:16px;">${SkillIcons.getIconSvg(item.skillName)}</span>
+          <strong>${escapeHtml(item.skillName)}</strong>
+          <span style="font-size:10px; color:var(--text-muted);">(${escapeHtml(item.level)})</span>
+          <span class="modal-skill-chip-remove" onclick="removeSkillChip('${type}', ${idx})" title="Remove skill">✕</span>
+        </span>
+      `).join('');
+    }
+
+    function removeSkillChip(type, index) {
+      if (type === 'teach') stagedTeachSkills.splice(index, 1);
+      else stagedLearnSkills.splice(index, 1);
+      renderSkillChips(type);
+    }
+
+    function openDropdown(type) {
+      filterDropdown(type, document.getElementById(type === 'teach' ? 'standaloneTeachSearch' : 'standaloneLearnSearch').value);
+    }
+
+    function filterDropdown(type, query = '') {
+      const menu = document.getElementById(type === 'teach' ? 'standaloneTeachDropdown' : 'standaloneLearnDropdown');
+      if (!menu) return;
+
+      const q = (query || '').trim().toLowerCase();
+      const currentList = type === 'teach' ? stagedTeachSkills : stagedLearnSkills;
+      const currentNames = new Set(currentList.map(s => s.skillName.toLowerCase()));
+
+      const matches = catalogueSkills.filter(s => {
+        if (currentNames.has(s.name.toLowerCase())) return false;
+        if (!q) return true;
+        return s.name.toLowerCase().includes(q) || (s.category && s.category.toLowerCase().includes(q));
+      }).slice(0, 30);
+
+      if (matches.length === 0) {
+        menu.innerHTML = `<div style="padding:10px; font-size:12px; color:var(--text-muted); text-align:center;">No matching skills found.</div>`;
+        menu.classList.add('open');
+        return;
+      }
+
+      menu.innerHTML = matches.map(s => `
+        <div class="modal-skill-dropdown-item" onclick="selectSkillItem('${type}', '${s._id}', '${escapeHtml(s.name).replace(/'/g, "\\'")}')">
+          <span style="display:inline-flex; width:18px; height:18px;">${SkillIcons.getIconSvg(s.name, s.iconType, s.iconKey)}</span>
+          <span style="flex:1;">${escapeHtml(s.name)}</span>
+          <span style="font-size:11px; color:var(--text-muted);">${escapeHtml(s.category || 'Skill')}</span>
+        </div>
+      `).join('');
+
+      menu.classList.add('open');
+    }
+
+    function selectSkillItem(type, skillId, skillName) {
+      if (type === 'teach') {
+        selectedCatalogueSkillTeach = { skillId, skillName };
+        document.getElementById('standaloneTeachSearch').value = skillName;
+      } else {
+        selectedCatalogueSkillLearn = { skillId, skillName };
+        document.getElementById('standaloneLearnSearch').value = skillName;
+      }
+      closeDropdowns();
+    }
+
+    function closeDropdowns() {
+      const d1 = document.getElementById('standaloneTeachDropdown');
+      const d2 = document.getElementById('standaloneLearnDropdown');
+      if (d1) d1.classList.remove('open');
+      if (d2) d2.classList.remove('open');
+    }
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.modal-skill-select-wrapper')) closeDropdowns();
+    });
+
+    function addSkillFromInput(type) {
+      const selected = type === 'teach' ? selectedCatalogueSkillTeach : selectedCatalogueSkillLearn;
+      const inputEl = document.getElementById(type === 'teach' ? 'standaloneTeachSearch' : 'standaloneLearnSearch');
+      const levelEl = document.getElementById(type === 'teach' ? 'standaloneTeachLevel' : 'standaloneLearnLevel');
+      const name = inputEl.value.trim();
+
+      if (!name) {
+        Toast.warning('Please select a skill from the catalogue.');
+        return;
+      }
+
+      let skillToAdd = selected;
+      if (!skillToAdd || skillToAdd.skillName.toLowerCase() !== name.toLowerCase()) {
+        const found = catalogueSkills.find(s => s.name.toLowerCase() === name.toLowerCase());
+        if (found) skillToAdd = { skillId: found._id, skillName: found.name };
+        else {
+          Toast.warning(`"${name}" is not in the SkillSync database. Please choose from suggested skills.`);
+          return;
+        }
+      }
+
+      const list = type === 'teach' ? stagedTeachSkills : stagedLearnSkills;
+      if (list.some(s => s.skillName.toLowerCase() === skillToAdd.skillName.toLowerCase())) {
+        Toast.warning(`${skillToAdd.skillName} is already added.`);
+        return;
+      }
+
+      list.push({
+        skillId: skillToAdd.skillId,
+        skillName: skillToAdd.skillName,
+        level: levelEl.value
+      });
+
+      renderSkillChips(type);
+      inputEl.value = '';
+      if (type === 'teach') selectedCatalogueSkillTeach = null;
+      else selectedCatalogueSkillLearn = null;
+      closeDropdowns();
+    }
+
+    async function saveProfileChanges(e) {
+      e.preventDefault();
+      const saveBtn = document.getElementById('standaloneSaveBtn');
+      if (saveBtn.disabled) return;
+
+      const fullName = document.getElementById('fullNameInput').value.trim();
+      const rawUsername = document.getElementById('usernameInput').value.trim().toLowerCase().replace(/^@/, '');
+      const phone = document.getElementById('phoneInput').value.trim();
+      const college = document.getElementById('collegeInput').value.trim();
+      const department = document.getElementById('departmentInput').value.trim();
+      const year = document.getElementById('yearInput').value;
+      const location = document.getElementById('locationInput').value.trim();
+      const availability = document.getElementById('availabilityInput').value;
+      const bio = document.getElementById('bioInput').value.trim();
+      const learningGoals = document.getElementById('learningGoalsInput').value.trim();
+      const linkedin = document.getElementById('linkedinInput').value.trim();
+      const github = document.getElementById('githubInput').value.trim();
+      const portfolio = document.getElementById('portfolioInput').value.trim();
+
+      if (!fullName || fullName.length < 2) {
+        Toast.error('Please enter your full name (minimum 2 characters).');
+        document.getElementById('fullNameInput').focus();
+        return;
+      }
+
+      if (!rawUsername || !/^[a-zA-Z0-9_.-]{3,30}$/.test(rawUsername)) {
+        Toast.error('Username must be 3-30 characters and contain only letters, numbers, underscores, dots, or hyphens.');
+        document.getElementById('usernameInput').focus();
+        return;
+      }
+
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = '<span class="btn-spinner"></span> Saving Changes...';
+
+      try {
+        const formData = new FormData();
+        formData.append('fullName', fullName);
+        formData.append('username', rawUsername);
+        formData.append('phone', phone);
+        formData.append('college', college);
+        formData.append('department', department);
+        formData.append('year', year);
+        formData.append('location', location);
+        formData.append('availability', availability);
+        formData.append('bio', bio);
+        formData.append('learningGoals', learningGoals);
+        formData.append('linkedin', linkedin);
+        formData.append('github', github);
+        formData.append('portfolio', portfolio);
+
+        if (pendingImageFile && pendingImageFile !== 'remove') {
+          formData.append('profileImage', pendingImageFile);
+        }
+
+        const updateRes = await api.upload('/users/me', formData);
+        api.setUser(updateRes.user);
+
+        // Sync skills diff
+        await syncSkillsDiff('teach', currentTeachSkills, stagedTeachSkills);
+        await syncSkillsDiff('learn', currentLearnSkills, stagedLearnSkills);
+
+        Toast.success('Profile updated successfully!');
+        setTimeout(() => {
+          window.location.href = '/pages/profile.html';
+        }, 800);
+
+      } catch (err) {
+        console.error('Save profile error:', err);
+        Toast.error(err.message || 'Failed to update profile. Please try again.');
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save Changes';
+      }
+    }
+
+    async function syncSkillsDiff(type, originalList, stagedList) {
+      const stagedIds = new Set(stagedList.map(s => (s.skillId?._id || s.skillId || '').toString()));
+      const toDelete = originalList.filter(o => !stagedIds.has((o.skillId?._id || o.skillId || '').toString()));
+
+      for (const item of toDelete) {
+        try {
+          await api.delete(`/user-skills/${item._id}`);
+        } catch (e) {
+          console.warn(`Could not remove ${item.skillName}:`, e);
+        }
+      }
+
+      const originalSkillIds = new Set(originalList.map(o => (o.skillId?._id || o.skillId || '').toString()));
+      const toAdd = stagedList.filter(s => !originalSkillIds.has((s.skillId?._id || s.skillId || '').toString()));
+
+      if (toAdd.length > 0) {
+        try {
+          await api.post('/user-skills/bulk', {
+            type,
+            skills: toAdd.map(s => ({
+              skillId: s.skillId,
+              skillName: s.skillName,
+              level: s.level
+            }))
+          });
+        } catch (e) {
+          console.warn(`Bulk add error for ${type}:`, e);
+        }
+      }
+    }
+
+    loadEditPage();
+  </script>
+</body>
+
+</html>
